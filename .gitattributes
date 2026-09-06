@@ -1,3 +1,5 @@
 # 数据包由构建脚本按 LF 生成；固定检出格式，避免 Windows CI 的严格校验误报。
 data/** text eol=lf
 tools/build-data-bundle.mjs text eol=lf
+release/GilFate-Setup-*.exe filter=lfs diff=lfs merge=lfs -text
+release/GilFate-Setup-*.exe.blockmap filter=lfs diff=lfs merge=lfs -text
