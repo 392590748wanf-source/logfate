@@ -24,7 +24,7 @@ window.addEventListener('load', async () => {
   Object.entries(datasetGlobals).forEach(([key, globalName]) => {
     if (externalDatasets[key] && typeof externalDatasets[key] === 'object') window[globalName] = externalDatasets[key];
   });
-  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'planner', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
+  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'ledger', leveSaleView: 'orders', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
   const data = JSON.parse(localStorage.getItem('ff14-770') || '{"m":[],"r":[],"p":{},"l":[]}');
   const mergeMaterials = (defaults, saved) => {
     const savedById = new Map((saved || []).map(item => [String(item.id), item]));
@@ -114,6 +114,10 @@ window.addEventListener('load', async () => {
   const leveSalesStorageKey = 'ff14-leve-sales-ledger';
   let leveSales = JSON.parse(localStorage.getItem(leveSalesStorageKey) || '[]');
   if (!Array.isArray(leveSales)) leveSales = [];
+  leveSales = leveSales.map(sale => sale?.planName === '方案一（系统推荐）' ? { ...sale, planName: '方案一（默认）' } : sale);
+  const levePricePresetStorageKey = 'ff14-leve-sale-price-presets';
+  let levePricePresets = JSON.parse(localStorage.getItem(levePricePresetStorageKey) || '{}');
+  if (!levePricePresets || Array.isArray(levePricePresets) || typeof levePricePresets !== 'object') levePricePresets = {};
   const submarineStocks = JSON.parse(localStorage.getItem('ff14-submarine-stocks') || '{}');
   const submarineSales = JSON.parse(localStorage.getItem('ff14-submarine-sales') || '[]');
   const submarineSuiteSales = JSON.parse(localStorage.getItem('ff14-submarine-suite-sales') || '[]');
@@ -189,7 +193,7 @@ window.addEventListener('load', async () => {
   const moneyFormatter = new Intl.NumberFormat('zh-CN');
   const chinaDateFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' });
   const money = n => moneyFormatter.format(Math.round(n || 0)) + ' G';
-  // 成本比较统一口径：市场参考价按交易税估算；每件自制成品加入固定时间成本。
+  // 市场参考价按交易税估算；制作时间补差仅供仍明确启用它的业务规则使用。
   // 历史采购记录的 total 已是用户实际入账合价，因此不会在这里重复计税。
   const MARKET_COMPARISON_TAX_RATE = 0.05;
   const SELF_CRAFT_TIME_SURCHARGE = 400;
@@ -303,6 +307,7 @@ window.addEventListener('load', async () => {
     else localStorage.removeItem(garlandVentureCoreCacheStorageKey);
     localStorage.setItem(craftScripManualStorageKey, JSON.stringify(craftScripManualExchanges));
     localStorage.setItem(leveSalesStorageKey, JSON.stringify(leveSales));
+    localStorage.setItem(levePricePresetStorageKey, JSON.stringify(levePricePresets));
     localStorage.setItem('ff14-submarine-stocks', JSON.stringify(submarineStocks));
     localStorage.setItem('ff14-submarine-sales', JSON.stringify(submarineSales));
     localStorage.setItem('ff14-submarine-suite-sales', JSON.stringify(submarineSuiteSales));
@@ -314,7 +319,7 @@ window.addEventListener('load', async () => {
     'ff14-770', 'ff14-material-state', 'ff14-material-purchases', 'ff14-fantasy-prices',
     'ff14-submarine-ticket-settings', 'ff14-other-material-ids', 'ff14-submarine-stocks',
     'ff14-submarine-sales', 'ff14-submarine-suite-sales', 'ff14-submarine-operations',
-    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
+    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, levePricePresetStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
   ];
   const backupFormat = 'ff14-fantasy-backup';
   const createBackup = () => ({
@@ -449,12 +454,15 @@ window.addEventListener('load', async () => {
     return allLeveRoutes.filter(route => Number(route.systemPlan?.[variant] || 0) > 0)
       .map(route => ({ leveId: Number(route.leveId), allowances: Number(route.systemPlan[variant]), quantity: Number(route.systemQuantity?.[variant] || 0) || null }));
   };
-  const normalizeLevePlan = plan => ({
-    id: String(plan?.id || ''), name: String(plan?.name || '未命名方案').trim() || '未命名方案', system: Boolean(plan?.system), planVersion: Number(plan?.planVersion || 0),
-    entries: [...new Map((plan?.entries || []).map(entry => [String(entry?.leveId || ''), { leveId: Number(entry?.leveId || 0), allowances: Math.max(1, Number(entry?.allowances || 1)), quantity: Number(entry?.quantity || 0) || null }]))
-      .values()].filter(entry => entry.leveId !== 0)
-  });
-  const defaultLevePlans = () => [{ id: 'system-default', name: '方案一（系统推荐）', system: true, planVersion: systemLevePlanVersion, entries: systemLevePlanEntries() }];
+  const normalizeLevePlan = plan => {
+    const id = String(plan?.id || '');
+    return {
+      id, name: id === 'system-default' ? '方案一（默认）' : (String(plan?.name || '未命名方案').trim() || '未命名方案'), system: Boolean(plan?.system), planVersion: Number(plan?.planVersion || 0),
+      entries: [...new Map((plan?.entries || []).map(entry => [String(entry?.leveId || ''), { leveId: Number(entry?.leveId || 0), allowances: Math.max(1, Number(entry?.allowances || 1)), quantity: Number(entry?.quantity || 0) || null }]))
+        .values()].filter(entry => entry.leveId !== 0)
+    };
+  };
+  const defaultLevePlans = () => [{ id: 'system-default', name: '方案一（默认）', system: true, planVersion: systemLevePlanVersion, entries: systemLevePlanEntries() }];
   const storedLevePlans = JSON.parse(localStorage.getItem(levePlanStorageKey) || 'null');
   let levePlans = Array.isArray(storedLevePlans?.plans) && storedLevePlans.plans.length
     ? storedLevePlans.plans.map(normalizeLevePlan)
@@ -784,16 +792,16 @@ window.addEventListener('load', async () => {
     }
     return rows;
   };
-  const selfCraftUnitCost = (uid, trail = new Set(), includeTimeSurcharge = true) => {
+  const selfCraftUnitCost = (uid, trail = new Set(), includeTimeSurcharge = false) => {
     uid = String(uid);
     if (trail.has(uid)) return null;
-    if (includeTimeSurcharge && !trail.size && submarineCraftCostCache.has(uid)) return submarineCraftCostCache.get(uid);
+    if (!trail.size && submarineCraftCostCache.has(uid)) return submarineCraftCostCache.get(uid);
     const node = recipeCandidatesFor(uid)[0];
     if (!node) return null;
     const rows = submarineCraftInputBreakdown(uid, trail);
     const inputs = rows.length && rows.every(row => row.unit > 0) ? rows.reduce((sum, row) => sum + row.total, 0) : null;
     const value = inputs == null ? null : (includeTimeSurcharge ? craftedUnitComparisonCost(inputs) : inputs);
-    if (includeTimeSurcharge && !trail.size) submarineCraftCostCache.set(uid, value);
+    if (!trail.size) submarineCraftCostCache.set(uid, value);
     return value;
   };
   // 装备与潜水艇均使用同一来源比较口径；装备节点同样可在直购与自制间选取较低有效成本。
@@ -908,7 +916,7 @@ window.addEventListener('load', async () => {
     const material = data.m.find(item => String(item.uid) === String(uid));
     const direct = scope === 'submarine' ? submarineSourceChoice(material || { uid: String(uid) }) : directSourceChoice(material || { uid: String(uid) });
     const recipeCost = node ? (scope === 'submarine'
-      ? selfCraftUnitCost(uid, new Set(), !isFinishedProduct)
+      ? selfCraftUnitCost(uid, new Set(), false)
       : equipmentCraftUnitCost(uid, new Set(), !isFinishedProduct)) : null;
     // 直购、采购或兑换成本不高于递归制作时，将该材料作为基础叶子处理。
     // 潜水艇的“自制（制作配方）”推荐不等于外购：必须继续展开合建与下级配方。
@@ -1159,7 +1167,6 @@ window.addEventListener('load', async () => {
       }
       const share = quantity / Math.max(1, Number(entry.needed || 0));
       const next = new Set(trail); next.add(key);
-      if (!rootKeys.has(key)) target.cost += SELF_CRAFT_TIME_SURCHARGE * Number(entry.batches || 0) * Math.max(1, Number(entry.node.y) || 1) * share;
       entry.inputs.forEach(input => allocation(input.key, input.quantity * share, target, next));
     };
     const allocationCost = (key, quantity) => {
@@ -1189,7 +1196,8 @@ window.addEventListener('load', async () => {
     const basic = [...leaves.entries()].map(([uid, quantity]) => ({ uid: Number(uid), name: materialName(uid), quantity, cost: leafCost(uid) * quantity })).sort((left, right) => left.uid - right.uid);
     const basicTotal = basic.reduce((sum, row) => sum + row.cost, 0);
     const craftedOutputs = [...nodes.entries()].filter(([key]) => !rootKeys.has(key)).reduce((sum, [, entry]) => sum + Number(entry.batches || 0) * Math.max(1, Number(entry.node.y) || 1), 0);
-    const timeCost = craftedOutputs * SELF_CRAFT_TIME_SURCHARGE;
+    // 装备制作成本只计算完整递归后的基础原料，不计制作时间补差。
+    const timeCost = 0;
     const total = finished.reduce((sum, row) => sum + row.cost, 0);
     const missing = basic.filter(row => row.quantity > 0 && !(leafCost(row.uid) > 0)).map(row => row.name);
     return {
@@ -1252,11 +1260,6 @@ window.addEventListener('load', async () => {
       }
       const share = quantity / Math.max(entry.needed, 1);
       const next = new Set(trail); next.add(key);
-      // 只给真正的半成品计时：成品根节点不收取 400 G，半成品的时间成本
-      // 跟随其制作成本分摊进引用它的单价，而不是作为独立的明细行。
-      if (!rootKeys.has(key)) {
-        target.cost += SELF_CRAFT_TIME_SURCHARGE * Number(entry.batches || 0) * Math.max(1, Number(entry.node.y) || 1) * share;
-      }
       entry.inputs.forEach(input => addAllocation(target, input.key, input.quantity * share, next));
     };
     const makeRows = (requests, nameFor) => {
@@ -1280,11 +1283,9 @@ window.addEventListener('load', async () => {
     });
     const direct = makeRows(directRequests, request => request.name);
     const basic = [...leaves.entries()].map(([uid, quantity]) => ({ uid: Number(uid), name: materialName(uid), quantity, cost: leafCost(uid) * quantity })).sort((left, right) => left.uid - right.uid);
-    // 根成品本身不收制作时间补差。半成品的补差随其成本分摊到上级单价中，
-    // 因此详情中不会再出现一行独立的“制作时间补差”。
     const craftedOutputs = [...nodes.entries()].filter(([key]) => !rootKeys.has(key)).reduce((sum, [, entry]) => sum + Number(entry.batches || 0) * Math.max(1, Number(entry.node.y) || 1), 0);
-    const timeCost = craftedOutputs * SELF_CRAFT_TIME_SURCHARGE;
-    // 完整成本从根成品的递归分摊取得；其中已含半成品的时间补差。
+    const timeCost = 0;
+    // 潜水艇与装备均按递归后的基础材料成本计算，不再计制作时间补差。
     const basicTotal = basic.reduce((sum, row) => sum + row.cost, 0);
     const total = finished.reduce((sum, row) => sum + row.cost, 0);
     const allocationCost = (key, quantity) => { const target = { cost: 0 }; addAllocation(target, key, quantity); return target.cost; };
@@ -1363,6 +1364,7 @@ window.addEventListener('load', async () => {
       <div class="app-contextbar" aria-label="当前页面导航">
         <div id="equipment-subnav" class="context-nav subnav equipment-type-nav"><button data-equipment-category="combat">战职装备</button><button data-equipment-category="gathering">生产采集装备</button></div>
         <div id="submarine-subnav" class="context-nav subnav"><button data-submarine-view="summary">销售利润</button><button data-submarine-view="ledger">潜水艇台账</button></div>
+        <div id="leve-subnav" class="context-nav subnav equipment-type-nav"><button data-leve-view="ledger">售卖台账</button><button data-leve-view="recommend">推荐售卖</button></div>
         <div id="trade-subnav" class="context-nav subnav equipment-type-nav"><button data-trade-view="inventory">我的库存材料</button><button data-trade-view="recruitment">招募市场</button></div>
       </div>
       <main>
@@ -3443,7 +3445,7 @@ window.addEventListener('load', async () => {
     });
     if (state.tradeView === 'inventory') revalidateTradeInventorySources();
   }
-  // 系统方案一沿用 20–100 级攻略；自定义方案可从完整生产理符库选择 1–100 级任务。
+  // 默认方案一沿用 20–100 级攻略；自定义方案可从完整生产理符库选择 1–100 级任务。
   const leveGuideStartLevel = 1;
   const levePlanRoutes = () => {
     const planEntries = new Map((activeLevePlan()?.entries || []).map(entry => [String(entry.leveId), entry]));
@@ -3595,24 +3597,177 @@ window.addEventListener('load', async () => {
     return total;
   }, { quantity: 0, cost: 0, pending: 0 });
   const leveSaleLabel = sale => `${sale.job} · ${sale.start}–${sale.target} 级`;
+  const levePricePresetKey = (job, start, target, double) => [job, Number(start), Number(target), double ? 'double' : 'normal'].join('|');
+  const levePriceRanges = job => {
+    const firstLevel = job === '捕鱼人' ? 15 : 20;
+    const segments = [[firstLevel, 30], [30, 40], [40, 50], [50, 60], [60, 70], [70, 80], [80, 90], [90, 100]];
+    return [...segments, [firstLevel, 90], [firstLevel, 100]];
+  };
+  const levePresetPrice = (job, start, target, double) => {
+    const price = Number(levePricePresets[levePricePresetKey(job, start, target, double)] || 0);
+    return price > 0 ? price : null;
+  };
+  const leveSuggestedPrice = ({ job, start, target, double }) => {
+    const exact = levePresetPrice(job, start, target, double);
+    if (exact != null) return { price: exact, source: '精确套餐预设' };
+    let cursor = Number(start), total = 0;
+    while (cursor < Number(target)) {
+      const segment = levePriceRanges(job).find(([from, to]) => from === cursor && to <= Number(target) && to - from <= 15);
+      if (!segment) return null;
+      const price = levePresetPrice(job, segment[0], segment[1], double);
+      if (price == null) return null;
+      total += price; cursor = segment[1];
+    }
+    return total > 0 ? { price: total, source: '分段预设合计' } : null;
+  };
+  const saveLevePresetPrice = (job, start, target, double, value) => {
+    const key = levePricePresetKey(job, start, target, double), price = Math.round(Number(value || 0));
+    if (price > 0) levePricePresets[key] = price;
+    else delete levePricePresets[key];
+    save();
+  };
+  const saveLevePresetPrices = updates => {
+    updates.forEach(({ job, start, target, double, value }) => {
+      const key = levePricePresetKey(job, start, target, double), price = Math.round(Number(value || 0));
+      if (price > 0) levePricePresets[key] = price;
+      else delete levePricePresets[key];
+    });
+    if (updates.length) save();
+  };
+  const leveRangeSupportedByJob = (job, start, target) => Number(start) >= (job === '捕鱼人' ? 15 : 20) && Number(target) <= 100 && Number(target) > Number(start);
+  function renderLevePricePresets() {
+    const root = document.querySelector('#leve');
+    const standardKeys = new Set();
+    const cards = allLeveJobs.map(job => {
+      const rows = levePriceRanges(job).map(([start, target]) => {
+        const normalKey = levePricePresetKey(job, start, target, false), doubleKey = levePricePresetKey(job, start, target, true);
+        standardKeys.add(normalKey); standardKeys.add(doubleKey);
+        return `<tr><td>${start}–${target}</td><td><input type="number" min="0" step="1" placeholder="未设置" value="${levePresetPrice(job, start, target, false) || ''}" data-leve-preset-price="${normalKey}" data-job="${job}" data-start="${start}" data-target="${target}" data-double="0"></td><td><input type="number" min="0" step="1" placeholder="未设置" value="${levePresetPrice(job, start, target, true) || ''}" data-leve-preset-price="${doubleKey}" data-job="${job}" data-start="${start}" data-target="${target}" data-double="1"></td></tr>`;
+      }).join('');
+      return `<section class="leve-price-card"><h2>${job}</h2><table class="leve-price-table"><thead><tr><th>等级区间</th><th>无优待</th><th>优待</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+    }).join('');
+    const customGroups = new Map();
+    Object.entries(levePricePresets).forEach(([key, value]) => {
+      const [job, start, target, variant] = key.split('|');
+      if (standardKeys.has(key) || !(Number(value) > 0)) return;
+      const groupKey = [job, start, target].join('|');
+      const group = customGroups.get(groupKey) || { job, start: Number(start), target: Number(target), normal: null, double: null };
+      group[variant] = Number(value); customGroups.set(groupKey, group);
+    });
+    const customRows = [...customGroups.values()].sort((left, right) => left.job.localeCompare(right.job, 'zh-CN') || left.start - right.start || left.target - right.target)
+      .map(row => `<tr><td>${row.job}</td><td>${row.start}–${row.target}</td><td>${row.normal ? money(row.normal) : '—'}</td><td>${row.double ? money(row.double) : '—'}</td><td><button class="btn secondary" data-leve-preset-delete="${row.job}|${row.start}|${row.target}">删除</button></td></tr>`).join('');
+    const allStandardRanges = [...new Map(allLeveJobs.flatMap(job => levePriceRanges(job)).map(([start, target]) => [`${start}|${target}`, [start, target]])).values()]
+      .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+    const batchPanel = `<section class="leve-price-batch"><form id="leve-batch-preset-form" class="leve-batch-preset-form"><fieldset class="leve-job-fieldset"><legend>适用职业</legend><div class="leve-job-checks">${allLeveJobs.map(job => `<label><input type="checkbox" value="${job}" data-leve-batch-job> ${job}</label>`).join('')}</div><div class="leve-job-actions"><button class="btn secondary" type="button" data-leve-batch-select-all>全选</button><button class="btn secondary" type="button" data-leve-batch-clear-all>取消</button></div></fieldset><label>等级区间<select id="leve-batch-preset-range"><option value="">请先选择职业</option>${allStandardRanges.map(([start, target]) => `<option value="${start}|${target}" hidden disabled>${start}–${target}</option>`).join('')}</select><small id="leve-batch-range-hint">只显示所选职业共同支持的区间。</small></label><label>无优待价格<input id="leve-batch-preset-normal" type="number" min="0" step="1" placeholder="留空不修改"></label><label>优待价格<input id="leve-batch-preset-double" type="number" min="0" step="1" placeholder="留空不修改"></label><button class="btn">批量保存</button></form></section>`;
+    root.innerHTML = `<div class="header"><div><h1>批量理符预设价格</h1><div class="sub">价格为一整套理符交付物的总售价；优待表示服务器双倍经验。留空即不设置，创建订单时会优先使用精确套餐价。</div></div><div class="leve-view-tabs"><button class="btn secondary" data-leve-view="planner">升级规划</button><button class="btn secondary" data-leve-sale-view="orders">售卖台账</button><button class="btn" disabled>价格预设</button></div></div>${batchPanel}<section class="leve-price-grid">${cards}</section><section class="sales-history leve-custom-price"><div class="header"><div><h2>自定义套餐价</h2><div class="sub">用于 30–100、60–100 等标准表外区间；精确套餐价会优先于分段价格。</div></div></div><form id="leve-custom-preset-form" class="leve-custom-price-form"><label>职业<select id="leve-custom-preset-job">${allLeveJobs.map(job => `<option value="${job}">${job}</option>`).join('')}</select></label><label>起始等级<input id="leve-custom-preset-start" type="number" min="15" max="99" step="1" value="20"></label><label>目标等级<input id="leve-custom-preset-target" type="number" min="16" max="100" step="1" value="100"></label><label>无优待价格<input id="leve-custom-preset-normal" type="number" min="0" step="1" placeholder="可留空"></label><label>优待价格<input id="leve-custom-preset-double" type="number" min="0" step="1" placeholder="可留空"></label><button class="btn">保存套餐价</button></form><div class="table-wrap"><table class="ledger"><thead><tr><th>职业</th><th>等级区间</th><th>无优待</th><th>优待</th><th>操作</th></tr></thead><tbody>${customRows || '<tr><td colspan="5" class="empty">暂无自定义套餐价。</td></tr>'}</tbody></table></div></section>`;
+    root.querySelector('.leve-view-tabs')?.remove();
+    const ledgerTabs = document.createElement('div');
+    ledgerTabs.className = 'leve-ledger-tabs';
+    ledgerTabs.innerHTML = '<button class="btn secondary" data-leve-sale-view="orders">订单台账</button><button class="btn" disabled>价格预设</button>';
+    root.querySelector('.leve-price-batch').before(ledgerTabs);
+    root.querySelectorAll('[data-leve-sale-view]').forEach(button => button.onclick = () => { state.leveSaleView = button.dataset.leveSaleView; renderLeveSales(); });
+    const batchRange = root.querySelector('#leve-batch-preset-range'), batchHint = root.querySelector('#leve-batch-range-hint');
+    const updateBatchRanges = () => {
+      const jobs = [...root.querySelectorAll('[data-leve-batch-job]:checked')].map(input => input.value);
+      [...batchRange.options].forEach(option => {
+        if (!option.value) return;
+        const [start, target] = option.value.split('|').map(Number), supported = jobs.length && jobs.every(job => leveRangeSupportedByJob(job, start, target));
+        option.hidden = !supported; option.disabled = !supported;
+        if (!supported && option.selected) batchRange.value = '';
+      });
+      batchHint.textContent = jobs.length ? '只显示所选职业共同支持的区间。' : '请至少选择一个职业。';
+    };
+    root.querySelectorAll('[data-leve-batch-job]').forEach(input => input.onchange = updateBatchRanges);
+    root.querySelector('[data-leve-batch-select-all]').onclick = () => {
+      root.querySelectorAll('[data-leve-batch-job]').forEach(input => { input.checked = true; });
+      updateBatchRanges();
+    };
+    root.querySelector('[data-leve-batch-clear-all]').onclick = () => {
+      root.querySelectorAll('[data-leve-batch-job]').forEach(input => { input.checked = false; });
+      updateBatchRanges();
+    };
+    root.querySelector('#leve-batch-preset-form').onsubmit = event => {
+      event.preventDefault();
+      const jobs = [...root.querySelectorAll('[data-leve-batch-job]:checked')].map(input => input.value), [start, target] = batchRange.value.split('|').map(Number);
+      const normal = root.querySelector('#leve-batch-preset-normal').value.trim(), double = root.querySelector('#leve-batch-preset-double').value.trim();
+      if (!jobs.length) return alert('请先选择至少一个职业。');
+      if (!(start && target)) return alert('请选择所有已选职业均支持的等级区间。');
+      if (!normal && !double) return alert('请至少填写无优待或优待其中一项价格。');
+      const updates = jobs.flatMap(job => [normal ? { job, start, target, double: false, value: normal } : null, double ? { job, start, target, double: true, value: double } : null].filter(Boolean));
+      saveLevePresetPrices(updates); renderLevePricePresets();
+    };
+    root.querySelectorAll('[data-leve-preset-price]').forEach(input => input.onchange = event => {
+      const field = event.currentTarget;
+      saveLevePresetPrice(field.dataset.job, field.dataset.start, field.dataset.target, field.dataset.double === '1', field.value);
+    });
+    root.querySelector('#leve-custom-preset-form').onsubmit = event => {
+      event.preventDefault();
+      const job = root.querySelector('#leve-custom-preset-job').value, start = Number(root.querySelector('#leve-custom-preset-start').value || 0), target = Number(root.querySelector('#leve-custom-preset-target').value || 0);
+      const minimum = job === '捕鱼人' ? 15 : 20;
+      if (start < minimum || target <= start || target > 100) return alert(`${job} 的等级范围必须在 ${minimum}–100 级内，且目标等级高于起始等级。`);
+      saveLevePresetPrice(job, start, target, false, root.querySelector('#leve-custom-preset-normal').value);
+      saveLevePresetPrice(job, start, target, true, root.querySelector('#leve-custom-preset-double').value);
+      renderLevePricePresets();
+    };
+    root.querySelectorAll('[data-leve-preset-delete]').forEach(button => button.onclick = () => {
+      const [job, start, target] = button.dataset.levePresetDelete.split('|');
+      if (!confirm(`删除 ${job} ${start}–${target} 的自定义套餐价？`)) return;
+      saveLevePresetPrice(job, start, target, false, 0); saveLevePresetPrice(job, start, target, true, 0);
+      renderLevePricePresets();
+    });
+  }
   function renderLeveSales() {
+    if (state.leveSaleView === 'prices') return renderLevePricePresets();
     loadItemIconIndex();
     const root = document.querySelector('#leve'), draft = state.leveSaleDraft;
-    const defaults = draft?.spec || { planId: activeLevePlanId, job: state.leveJob, start: state.leveJob === '捕鱼人' ? Math.max(15, Number(state.leveStart || 15)) : Number(state.leveStart), target: Number(state.leveTarget), double: Boolean(state.leveDouble), salePrice: '' };
+    const initialSpec = { planId: activeLevePlanId, job: state.leveJob, start: state.leveJob === '捕鱼人' ? Math.max(15, Number(state.leveStart || 15)) : Number(state.leveStart), target: Number(state.leveTarget), double: Boolean(state.leveDouble) };
+    const initialQuote = leveSuggestedPrice(initialSpec);
+    const defaults = draft?.spec || { ...initialSpec, salePrice: initialQuote?.price || '' };
     const totals = leveSaleTotals(draft), salePrice = Math.max(0, Number(draft?.spec?.salePrice || 0)), profit = salePrice - totals.cost;
     const optionJobs = allLeveJobs.map(job => `<option value="${job}" ${job === defaults.job ? 'selected' : ''}>${job}</option>`).join('');
     const orders = [...leveSales].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-    root.innerHTML = `<div class="header"><div><h1>理符售卖台账</h1><div class="sub">按方案生成整套交付物；保存后数量与成本固定，不受后续价格或方案调整影响。</div></div><div class="leve-view-tabs"><button class="btn secondary" data-leve-view="planner">升级规划</button><button class="btn" disabled>售卖台账</button></div></div><section class="leve-controls leve-sale-controls"><label>理符方案<select id="leve-sale-plan">${levePlans.map(plan => `<option value="${plan.id}" ${plan.id === defaults.planId ? 'selected' : ''}>${plan.name}</option>`).join('')}</select></label><label>职业<select id="leve-sale-job">${optionJobs}</select></label><label>起始等级<input id="leve-sale-start" type="number" min="${defaults.job === '捕鱼人' ? 15 : 1}" max="99" value="${defaults.start}"></label><label>目标等级<input id="leve-sale-target" type="number" min="${defaults.job === '捕鱼人' ? 16 : 2}" max="100" value="${defaults.target}"></label><label class="leve-double"><input id="leve-sale-double" type="checkbox" ${defaults.double ? 'checked' : ''}>服务器优待（双倍经验）</label><label>订单总售价<input id="leve-sale-price" type="number" min="0" step="1" value="${defaults.salePrice || ''}" placeholder="G"></label><button class="btn" id="leve-sale-generate">生成交付清单</button></section>${draft ? `<section class="sales-history leve-sale-preview"><div class="header"><div><h2>待保存交易 · ${leveSaleLabel(draft.spec)}</h2><div class="sub">${levePlanById(draft.spec.planId).name} · ${draft.spec.double ? '服务器优待（双倍经验）' : '无优待'}</div></div><div class="leve-sale-totals"><span>交付物 ${totals.quantity}</span><span>锁定成本 ${money(totals.cost)}</span><span class="profit">预计利润 ${money(profit)}</span></div></div><div class="table-wrap"><table class="ledger"><thead><tr><th>等级</th><th>理符任务</th><th>所需道具</th><th>数量</th><th>锁定单价</th><th>锁定成本</th><th>操作</th></tr></thead><tbody>${draft.lines.map((line, index) => `<tr><td>${line.level}</td><td class="label">${line.quest}</td><td class="label">${itemLabelMarkup(line.itemId, line.item, { hq: line.hq })}</td><td><input class="leve-sale-quantity" type="number" min="0" step="1" value="${line.quantity}" data-leve-sale-line="${index}"></td><td>${line.unitCost > 0 ? money(line.unitCost) : line.costReason || '等待补价'}</td><td>${line.unitCost > 0 ? money(line.unitCost * line.quantity) : '—'}</td><td><button class="btn secondary" data-leve-sale-remove="${index}">移除</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">所选方案在该职业与等级区间没有理符任务。</td></tr>'}</tbody></table></div>${totals.pending ? `<p class="status">有 ${totals.pending} 项交付物尚未补价；请在材料指导价中补齐成本后再保存订单。</p>` : ''}<div class="modal-actions"><button class="btn" id="leve-sale-save" ${totals.pending || !draft.lines.length || !(salePrice > 0) ? 'disabled' : ''}>保存交易</button></div></section>` : ''}<section class="sales-history"><h2>已保存交易</h2><div class="table-wrap"><table class="ledger"><thead><tr><th>日期</th><th>职业／等级</th><th>方案</th><th>经验环境</th><th>总售价</th><th>总成本</th><th>利润</th><th>利润率</th><th></th></tr></thead><tbody>${orders.map(order => { const margin = order.cost > 0 ? `${Math.round(order.profit / order.cost * 100)}%` : '—'; return `<tr><td>${order.date}</td><td class="label">${leveSaleLabel(order)}</td><td>${order.planName}</td><td>${order.double ? '服务器优待' : '无优待'}</td><td>${money(order.salePrice)}</td><td>${money(order.cost)}</td><td class="profit">${money(order.profit)}</td><td>${margin}</td><td><button class="btn secondary" data-leve-sale-detail="${order.id}">详情</button> <button class="btn secondary" data-leve-sale-delete="${order.id}">删除</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">暂无已保存交易。</td></tr>'}</tbody></table></div></section>`;
-    root.querySelectorAll('[data-leve-view]').forEach(button => button.onclick = () => { state.leveView = button.dataset.leveView; state.leveSaleDraft = null; renderLeve(); });
+    root.innerHTML = `<div class="header"><div><h1>理符售卖台账</h1><div class="sub">按方案生成整套交付物；保存后数量与成本固定，不受后续价格或方案调整影响。</div></div><div class="leve-view-tabs"><button class="btn secondary" data-leve-view="planner">升级规划</button><button class="btn" disabled>售卖台账</button><button class="btn secondary" data-leve-sale-view="prices">价格预设</button></div></div><section class="leve-controls leve-sale-controls"><label>理符方案<select id="leve-sale-plan">${levePlans.map(plan => `<option value="${plan.id}" ${plan.id === defaults.planId ? 'selected' : ''}>${plan.name}</option>`).join('')}</select></label><label>职业<select id="leve-sale-job">${optionJobs}</select></label><label>起始等级<input id="leve-sale-start" type="number" min="${defaults.job === '捕鱼人' ? 15 : 1}" max="99" value="${defaults.start}"></label><label>目标等级<input id="leve-sale-target" type="number" min="${defaults.job === '捕鱼人' ? 16 : 2}" max="100" value="${defaults.target}"></label><label class="leve-double"><input id="leve-sale-double" type="checkbox" ${defaults.double ? 'checked' : ''}>服务器优待（双倍经验）</label><label>订单总售价<input id="leve-sale-price" type="number" min="0" step="1" value="${defaults.salePrice || ''}" placeholder="G">${draft ? '' : `<small id="leve-sale-price-hint" ${initialQuote ? '' : 'hidden'}>${initialQuote ? `已带入：${initialQuote.source}` : ''}</small>`}</label><button class="btn" id="leve-sale-generate">生成交付清单</button></section>${draft ? `<section class="sales-history leve-sale-preview"><div class="header"><div><h2>待保存交易 · ${leveSaleLabel(draft.spec)}</h2><div class="sub">${levePlanById(draft.spec.planId).name} · ${draft.spec.double ? '服务器优待（双倍经验）' : '无优待'}</div></div><div class="leve-sale-totals"><span>交付物 ${totals.quantity}</span><span>锁定成本 ${money(totals.cost)}</span><span class="profit">预计利润 ${money(profit)}</span></div></div><div class="table-wrap"><table class="ledger"><thead><tr><th>等级</th><th>理符任务</th><th>所需道具</th><th>数量</th><th>锁定单价</th><th>锁定成本</th><th>操作</th></tr></thead><tbody>${draft.lines.map((line, index) => `<tr><td>${line.level}</td><td class="label">${line.quest}</td><td class="label">${itemLabelMarkup(line.itemId, line.item, { hq: line.hq })}</td><td><input class="leve-sale-quantity" type="number" min="0" step="1" value="${line.quantity}" data-leve-sale-line="${index}"></td><td>${line.unitCost > 0 ? money(line.unitCost) : line.costReason || '等待补价'}</td><td>${line.unitCost > 0 ? money(line.unitCost * line.quantity) : '—'}</td><td><button class="btn secondary" data-leve-sale-remove="${index}">移除</button></td></tr>`).join('') || '<tr><td colspan="7" class="empty">所选方案在该职业与等级区间没有理符任务。</td></tr>'}</tbody></table></div>${totals.pending ? `<p class="status">有 ${totals.pending} 项交付物尚未补价；请在材料指导价中补齐成本后再保存订单。</p>` : ''}<div class="modal-actions"><button class="btn" id="leve-sale-save" ${totals.pending || !draft.lines.length || !(salePrice > 0) ? 'disabled' : ''}>保存交易</button></div></section>` : ''}<section class="sales-history"><h2>已保存交易</h2><div class="table-wrap"><table class="ledger"><thead><tr><th>日期</th><th>职业／等级</th><th>方案</th><th>经验环境</th><th>总售价</th><th>总成本</th><th>利润</th><th><th>利润率</th><th></th></tr></thead><tbody>${orders.map(order => { const margin = order.cost > 0 ? `${Math.round(order.profit / order.cost * 100)}%` : '—'; return `<tr><td>${order.date}</td><td class="label">${leveSaleLabel(order)}</td><td>${order.planName}</td><td>${order.double ? '服务器优待' : '无优待'}</td><td>${money(order.salePrice)}</td><td>${money(order.cost)}</td><td class="profit">${money(order.profit)}</td><td>${margin}</td><td><button class="btn secondary" data-leve-sale-detail="${order.id}">详情</button> <button class="btn secondary" data-leve-sale-delete="${order.id}">删除</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="empty">暂无已保存交易。</td></tr>'}</tbody></table></div></section>`;
+    const ordersHeader = [...root.querySelectorAll('.sales-history .ledger thead tr')].find(row => row.children.length === 10);
+    ordersHeader?.children[7]?.remove();
+    document.querySelector('#leve-sale-draft-dialog')?.remove();
+    const preview = root.querySelector('.leve-sale-preview');
+    let draftRoot = root;
+    if (preview) {
+      const dialog = document.createElement('dialog');
+      dialog.id = 'leve-sale-draft-dialog'; dialog.className = 'leve-sale-draft-dialog';
+      const blockedReason = totals.pending ? `有 ${totals.pending} 项交付物尚未补价，暂不能保存交易。`
+        : !draft.lines.length ? '交付清单为空，暂不能保存交易。'
+          : !(salePrice > 0) ? '请先填写大于 0 的订单总售价，才能保存交易。' : '';
+      dialog.innerHTML = `<div class="modal leve-sale-draft-modal"><div class="header"><div><h2>交付清单</h2><div class="sub">保存后任务、数量、售价与成本将冻结。</div></div><button class="btn secondary" type="button" data-leve-sale-cancel>取消本次交易</button></div><label class="leve-sale-draft-price">订单总售价<input id="leve-sale-draft-price" type="number" min="0" step="1" value="${draft.spec.salePrice || ''}" placeholder="G"></label>${preview.innerHTML}${blockedReason ? `<p class="status">${blockedReason}</p>` : ''}</div>`;
+      preview.remove(); document.body.append(dialog); dialog.showModal(); draftRoot = dialog;
+      dialog.querySelector('[data-leve-sale-cancel]').onclick = () => { state.leveSaleDraft = null; dialog.close(); renderLeveSales(); };
+      dialog.querySelector('#leve-sale-draft-price').onchange = event => { draft.spec.salePrice = Math.max(0, Number(event.currentTarget.value || 0)); renderLeveSales(); };
+    }
+    root.querySelector('.leve-view-tabs')?.remove();
+    const ledgerTabs = document.createElement('div');
+    ledgerTabs.className = 'leve-ledger-tabs';
+    ledgerTabs.innerHTML = '<button class="btn" disabled>订单台账</button><button class="btn secondary" data-leve-sale-view="prices">价格预设</button>';
+    root.querySelector('.leve-sale-controls').before(ledgerTabs);
+    root.querySelectorAll('[data-leve-sale-view]').forEach(button => button.onclick = () => { state.leveSaleView = button.dataset.leveSaleView; state.leveSaleDraft = null; renderLeveSales(); });
+    const refreshSuggestedSalePrice = () => {
+      const job = root.querySelector('#leve-sale-job').value, start = Number(root.querySelector('#leve-sale-start').value || 0), target = Number(root.querySelector('#leve-sale-target').value || 0), double = root.querySelector('#leve-sale-double').checked;
+      const minimum = job === '捕鱼人' ? 15 : 20, quote = leveSuggestedPrice({ job, start, target, double });
+      root.querySelector('#leve-sale-start').min = String(minimum);
+      root.querySelector('#leve-sale-target').min = String(minimum + 1);
+      root.querySelector('#leve-sale-price').value = quote?.price || '';
+      const priceHint = root.querySelector('#leve-sale-price-hint');
+      if (priceHint) { priceHint.hidden = !quote; priceHint.textContent = quote ? `已带入：${quote.source}` : ''; }
+    };
+    root.querySelectorAll('#leve-sale-job,#leve-sale-start,#leve-sale-target,#leve-sale-double').forEach(input => input.onchange = refreshSuggestedSalePrice);
     root.querySelector('#leve-sale-generate').onclick = () => {
       const job = root.querySelector('#leve-sale-job').value, start = Number(root.querySelector('#leve-sale-start').value || 0), target = Number(root.querySelector('#leve-sale-target').value || 0);
       if (target <= start || start < (job === '捕鱼人' ? 15 : 1) || target > 100) return alert(job === '捕鱼人' ? '捕鱼人支持 15–100 级，目标等级必须高于起始等级。' : '请填写有效的等级区间。');
       state.leveSaleDraft = leveSaleDraft({ planId: root.querySelector('#leve-sale-plan').value, job, start, target, double: root.querySelector('#leve-sale-double').checked, salePrice: root.querySelector('#leve-sale-price').value });
       renderLeveSales();
     };
-    root.querySelectorAll('.leve-sale-quantity').forEach(input => input.onchange = event => { const line = draft?.lines[Number(event.currentTarget.dataset.leveSaleLine)]; if (!line) return; line.quantity = Math.max(0, Number(event.currentTarget.value || 0)); renderLeveSales(); });
-    root.querySelectorAll('[data-leve-sale-remove]').forEach(button => button.onclick = () => { draft.lines.splice(Number(button.dataset.leveSaleRemove), 1); renderLeveSales(); });
-    root.querySelector('#leve-sale-save')?.addEventListener('click', () => {
+    draftRoot.querySelectorAll('.leve-sale-quantity').forEach(input => input.onchange = event => { const line = draft?.lines[Number(event.currentTarget.dataset.leveSaleLine)]; if (!line) return; line.quantity = Math.max(0, Number(event.currentTarget.value || 0)); renderLeveSales(); });
+    draftRoot.querySelectorAll('[data-leve-sale-remove]').forEach(button => button.onclick = () => { draft.lines.splice(Number(button.dataset.leveSaleRemove), 1); renderLeveSales(); });
+    draftRoot.querySelector('#leve-sale-save')?.addEventListener('click', () => {
       const current = state.leveSaleDraft, currentTotals = leveSaleTotals(current), value = Number(current?.spec?.salePrice || 0);
       if (!current || currentTotals.pending || !(value > 0)) return;
       leveSales.unshift({ id: `leve-sale-${Date.now()}`, date: today(), createdAt: new Date().toISOString(), planId: current.spec.planId, planName: levePlanById(current.spec.planId).name, job: current.spec.job, start: current.spec.start, target: current.spec.target, double: current.spec.double, salePrice: value, cost: currentTotals.cost, profit: value - currentTotals.cost, lines: current.lines.map(line => ({ ...line })) });
@@ -3622,7 +3777,7 @@ window.addEventListener('load', async () => {
     root.querySelectorAll('[data-leve-sale-detail]').forEach(button => button.onclick = () => { const order = leveSales.find(item => item.id === button.dataset.leveSaleDetail); if (!order) return; const rows = order.lines.map(line => `<tr><td>${line.level}</td><td class="label">${line.quest}</td><td class="label">${itemLabelMarkup(line.itemId, line.item, { hq: line.hq })}</td><td>${line.quantity}</td><td>${money(line.unitCost)}</td><td>${money(line.unitCost * line.quantity)}</td></tr>`).join(''); document.querySelector('#bundle-detail-content').innerHTML = `<div class="header"><div><h2>${leveSaleLabel(order)} 售卖明细</h2><div class="sub">${order.date} · ${order.planName} · ${order.double ? '服务器优待' : '无优待'}</div></div></div><div class="cards"><article class="card"><small>订单总售价</small><b>${money(order.salePrice)}</b></article><article class="card"><small>锁定成本</small><b>${money(order.cost)}</b></article><article class="card"><small>利润</small><b class="profit">${money(order.profit)}</b></article></div><div class="table-wrap"><table class="ledger"><thead><tr><th>等级</th><th>理符任务</th><th>所需道具</th><th>数量</th><th>锁定单价</th><th>锁定成本</th></tr></thead><tbody>${rows}</tbody></table></div>`; document.querySelector('#bundle-detail-dialog').showModal(); });
   }
   function renderLeve() {
-    if (state.leveView === 'sales') return renderLeveSales();
+    if (state.leveView === 'ledger') return renderLeveSales();
     loadItemIconIndex();
     const start = Number(state.leveStart), target = Number(state.leveTarget);
     const minimumLevel = state.leveJob === '捕鱼人' ? 15 : leveGuideStartLevel;
@@ -3672,19 +3827,14 @@ window.addEventListener('load', async () => {
     }).join('');
     const root = document.querySelector('#leve');
     root.innerHTML = `<div class="header"><div><div class="meta">理符售卖 · 生产职业升级规划</div><h1>理符售卖推荐</h1><div class="sub">方案一严格依据 7.0 制作理符攻略：服务器双倍开启时使用对应的双倍经验表。成本直接使用材料库的最新参考价，全部按高品质交付计算。</div></div></div><section class="leve-controls"><label>职业<select id="leve-job">${(levequests.jobs || []).map(job => `<option value="${job}" ${job === state.leveJob ? 'selected' : ''}>${job}</option>`).join('')}</select></label><label>当前等级<input id="leve-start" type="number" min="20" max="99" step="1" value="${start}"></label><label>目标等级<input id="leve-target" type="number" min="21" max="100" step="1" value="${target}"></label><label class="leve-double"><input id="leve-double" type="checkbox" ${state.leveDouble ? 'checked' : ''}>服务器双倍经验</label></section>${validRange ? '' : '<p class="status">攻略范围为 20–100 级，目标等级必须高于当前等级。</p>'}<div class="cards leve-summary"><article class="card"><small>升级所需经验</small><b>${moneyFormatter.format(plan.requiredExperience)}</b><div class="meta">${start} → ${target} 级</div></article><section class="leve-experience-summary"><article class="card"><small>实际获得经验</small><b>${moneyFormatter.format(plan.plannedExperience)}</b></article><article class="card"><small>理论获得经验</small><b>${moneyFormatter.format(plan.theoreticalExperience)}</b><div class="meta">到达90级溢出 ${moneyFormatter.format(plan.level90LostExperience)} 经验 · 到达100级溢出 ${moneyFormatter.format(plan.targetOverflowExperience)} 经验</div></article></section><article class="card leve-plan-volume"><div class="leve-summary-pair"><div><small>理符额度</small><b>${summary.allowances}</b></div><div><small>交付物总数</small><b>${summary.quantity}</b></div></div></article><article class="card leve-cost-summary"><small>预计交付成本</small><b>${summary.pending ? '等待补价' : money(summary.cost)}</b>${summary.pending ? `<div class="meta">${summary.pending} 项等待补价，未计入总计</div>` : ''}</article></div><div class="table-wrap"><table class="ledger leve-ledger"><thead><tr><th>等级</th><th>理符任务</th><th>所需道具</th><th>物品数量</th><th>理符额度</th><th>经验</th><th>当前成本</th><th>接取地点</th></tr></thead><tbody>${rows || `<tr><td colspan="8" class="empty">${validRange ? '该等级范围暂无已导入路线。' : '请先填写有效等级范围。'}</td></tr>`}</tbody></table></div>`;
-    // 完整生产理符库与当前方案分离：系统方案可恢复，自定义方案只保存在本机。
+    // 完整生产理符库与当前方案分离：默认方案可恢复，自定义方案只保存在本机。
     root.querySelector('#leve-start').min = String(minimumLevel);
     root.querySelector('#leve-target').min = String(minimumLevel + 1);
     const leveJobSelector = root.querySelector('#leve-job');
     leveJobSelector.innerHTML = allLeveJobs.map(job => `<option value="${job}" ${job === state.leveJob ? 'selected' : ''}>${job}</option>`).join('');
     root.querySelector('.header .sub').textContent = state.leveJob === '捕鱼人'
       ? '捕鱼人支持 15–100 级，普通品质交付；服务器优待开启时使用对应额度，达到 90 级后双倍经验失效。'
-      : '系统方案一使用 7.0 的 20–100 级推荐路线；自定义方案可从完整生产理符库添加 1–100 级任务。全部按高品质交付计算；达到 90 级后，服务器双倍经验与 90 以下理符经验均失效。';
-    const leveViewTabs = document.createElement('div');
-    leveViewTabs.className = 'leve-view-tabs';
-    leveViewTabs.innerHTML = '<button class="btn secondary" data-leve-view="sales">售卖台账</button>';
-    root.querySelector('.header').append(leveViewTabs);
-    leveViewTabs.querySelector('[data-leve-view]').onclick = () => { state.leveView = 'sales'; renderLeve(); };
+      : '默认方案一使用 7.0 的 20–100 级推荐路线；自定义方案可从完整生产理符库添加 1–100 级任务。全部按高品质交付计算；达到 90 级后，服务器双倍经验与 90 以下理符经验均失效。';
     const activePlan = activeLevePlan();
     const controls = root.querySelector('.leve-controls');
     const planSelector = document.createElement('label');
@@ -3693,7 +3843,7 @@ window.addEventListener('load', async () => {
     controls.prepend(planSelector);
     const planActions = document.createElement('div');
     planActions.className = 'leve-plan-actions';
-    planActions.innerHTML = `<button class="btn secondary" id="leve-plan-edit">${state.levePlanEditing ? '完成编辑' : '编辑方案'}</button><button class="btn secondary" id="leve-plan-create">+ 新建方案</button>${activePlan.system ? '<button class="btn secondary" id="leve-plan-restore">恢复系统默认</button>' : '<button class="btn secondary" id="leve-plan-delete">删除方案</button>'}`;
+    planActions.innerHTML = `<button class="btn secondary" id="leve-plan-edit">${state.levePlanEditing ? '完成编辑' : '编辑方案'}</button><button class="btn secondary" id="leve-plan-create">+ 新建方案</button>${activePlan.system ? '<button class="btn secondary" id="leve-plan-restore">恢复默认方案</button>' : '<button class="btn secondary" id="leve-plan-delete">删除方案</button>'}`;
     controls.append(planActions);
     if (state.levePlanEditing) {
       const search = state.leveCatalogSearch.trim().toLocaleLowerCase('zh-CN');
@@ -3795,7 +3945,7 @@ window.addEventListener('load', async () => {
       levePlans.push({ id, name, system: false, entries: activePlan.entries.map(entry => ({ ...entry })) }); activeLevePlanId = id; state.levePlanEditing = true; saveLevePlans(); renderLeve();
     };
     root.querySelector('#leve-plan-restore')?.addEventListener('click', () => {
-      if (!confirm('恢复方案一的系统默认路线？当前对方案一的调整会被覆盖。')) return;
+      if (!confirm('恢复方案一的默认路线？当前对方案一的调整会被覆盖。')) return;
       activePlan.entries = systemLevePlanEntries(); saveLevePlans(); renderLeve();
     });
     root.querySelector('#leve-plan-delete')?.addEventListener('click', () => {
@@ -3935,8 +4085,8 @@ window.addEventListener('load', async () => {
     document.querySelector('#bundle-detail-title').textContent = `${bundle.label}装备详情`;
     const incomplete = bundle.components.filter(component => component.item && !hasCompleteBaseRecipe(component.item)).map(component => component.item.n);
     const missingPrices = plan.missing;
-    const costOptions = { timeCost: plan.timeCost, craftedOutputs: plan.craftedOutputs, reconcile: false };
-    const costSummary = `<section class="sales-history equipment-cost-summary"><div class="history-head"><div><h3>装备制作成本构成</h3><div class="sub">装备一律按完整配方自制到底：基础原料成本加制作时间补差后，与成品清单成本一致。</div></div></div><div class="cards"><div class="card"><small>基础原料成本</small><b>${money(plan.basicTotal)}</b></div><div class="card"><small>制作时间补差</small><b>${money(plan.timeCost)}</b></div><div class="card"><small>装备制作总成本</small><b>${money(plan.total)}</b></div></div></section>`;
+    const costOptions = { reconcile: false };
+    const costSummary = `<section class="sales-history equipment-cost-summary"><div class="history-head"><div><h3>装备制作成本构成</h3><div class="sub">装备一律按完整配方自制到底：基础原料成本与成品清单成本一致。</div></div></div><div class="cards"><div class="card"><small>基础原料成本</small><b>${money(plan.basicTotal)}</b></div><div class="card"><small>装备制作总成本</small><b>${money(plan.total)}</b></div></div></section>`;
     document.querySelector('#bundle-detail-content').innerHTML = `${incomplete.length ? `<div class="status">基础配方不完整：${incomplete.join('、')}。该套装不可制作入账。</div>` : ''}${missingPrices.length ? `<div class="status">以下材料未获取单价：${missingPrices.join('、')}。请刷新市场价或添加采购记录后再制作。</div>` : ''}<div class="detail-columns"><section class="detail-column"><h3>成品清单</h3>${costTable(plan.finished, '成品清单总成本', plan.total, costOptions)}</section><section class="detail-column"><h3>制作素材：直接</h3>${costTable(plan.direct, '直接素材实际成本', plan.direct.reduce((sum, row) => sum + row.cost, 0), costOptions)}</section><section class="detail-column"><h3>制作素材：基础</h3>${costTable(plan.basic, '基础原料实际成本', plan.basicTotal, costOptions)}</section></div>${costSummary}<section class="sales-history"><div class="history-head"><div><h3>历史销售记录</h3><div class="sub">新增与删除记录都会同步回写该职业 / 分项的成品库存。</div></div></div><form id="detail-sale-form" class="history-form"><label>销售日期<input id="detail-sale-date" type="date" value="${today()}"></label><label>数量<input id="detail-sale-quantity" type="number" min="1" max="${inventory(bundle)}" value="1"></label><label>成交单价<input id="detail-sale-price" type="number" min="0.01" step="1" placeholder="建议售价 ${Math.round(priceFor(bundle))} G" required></label><button class="btn" ${inventory(bundle) ? '' : 'disabled'}>+ 新增销售记录</button></form><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>日期</th><th>数量</th><th>成交额</th><th>销售成本</th><th>利润</th><th></th></tr></thead><tbody>${history.map(({ entry, index }) => `<tr><td>${entry.date}</td><td>${entry.q}</td><td>${money(entry.amount)}</td><td>${money(entry.cost)}</td><td class="profit">${money(entry.profit)}</td><td><button class="btn secondary" data-delete-sale="${index}">删除</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无销售记录</td></tr>'}</tbody></table></div></section>`;
     document.querySelector('#detail-sale-form').onsubmit = event => {
       event.preventDefault();
@@ -4435,7 +4585,12 @@ window.addEventListener('load', async () => {
   });
   document.querySelector('#submarine-toggle').onclick = () => { state.page = 'submarine'; state.submarineView = 'summary'; state.submarineExpanded = true; state.expanded = false; state.guideExpanded = false; render(); };
   document.querySelectorAll('[data-submarine-view]').forEach(button => button.onclick = () => { state.page = 'submarine'; state.submarineView = button.dataset.submarineView; state.submarineExpanded = true; state.expanded = false; state.guideExpanded = false; render(); });
-  document.querySelector('.app-primary-nav button[data-page="leve"]').onclick = () => { state.page = 'leve'; state.expanded = false; state.submarineExpanded = false; state.guideExpanded = false; render(); };
+  document.querySelector('.app-primary-nav button[data-page="leve"]').onclick = () => { state.page = 'leve'; state.leveView = 'ledger'; state.leveSaleView = 'orders'; state.leveSaleDraft = null; state.expanded = false; state.submarineExpanded = false; state.guideExpanded = false; render(); };
+  document.querySelectorAll('#leve-subnav [data-leve-view]').forEach(button => button.onclick = () => {
+    state.page = 'leve'; state.leveView = button.dataset.leveView;
+    if (state.leveView === 'ledger') { state.leveSaleView = 'orders'; state.leveSaleDraft = null; }
+    state.expanded = false; state.submarineExpanded = false; state.guideExpanded = false; render();
+  });
   document.querySelector('.app-primary-nav button[data-page="trade"]').onclick = () => { state.page = 'trade'; state.tradeView = 'inventory'; state.expanded = false; state.submarineExpanded = false; state.guideExpanded = false; render(); };
   document.querySelectorAll('[data-trade-view]').forEach(button => button.onclick = () => { state.page = 'trade'; state.tradeView = button.dataset.tradeView; state.expanded = false; state.submarineExpanded = false; state.guideExpanded = false; render(); });
   document.querySelector('#guide-toggle').onclick = () => { state.page = 'guide'; state.guideView = 'basic'; state.selectedMaterial = null; state.guideExpanded = true; state.expanded = false; state.submarineExpanded = false; render(); };
@@ -4448,7 +4603,7 @@ window.addEventListener('load', async () => {
   function render() {
     document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === state.page));
     document.querySelectorAll('.app-primary-nav button[data-page]').forEach(button => button.classList.toggle('active', button.dataset.page === state.page));
-    const equipmentOpen = state.page === 'equipment', submarineOpen = state.page === 'submarine', guideOpen = state.page === 'guide', tradeOpen = state.page === 'trade';
+    const equipmentOpen = state.page === 'equipment', submarineOpen = state.page === 'submarine', guideOpen = state.page === 'guide', tradeOpen = state.page === 'trade', leveOpen = state.page === 'leve';
     document.querySelector('#equipment-toggle').classList.toggle('active', equipmentOpen);
     document.querySelector('#equipment-toggle').setAttribute('aria-expanded', String(equipmentOpen));
     document.querySelector('#equipment-toggle .nav-caret').textContent = equipmentOpen ? '⌃' : '⌄';
@@ -4462,7 +4617,9 @@ window.addEventListener('load', async () => {
     document.querySelector('#guide-toggle').classList.toggle('active', guideOpen);
     document.querySelector('#guide-toggle').setAttribute('aria-expanded', String(guideOpen));
     document.querySelector('#guide-toggle .nav-caret').textContent = guideOpen ? '⌃' : '⌄';
-    document.querySelector('.app-contextbar').classList.toggle('has-open-nav', equipmentOpen || submarineOpen || tradeOpen);
+    document.querySelector('.app-contextbar').classList.toggle('has-open-nav', equipmentOpen || submarineOpen || leveOpen || tradeOpen);
+    document.querySelector('#leve-subnav').classList.toggle('open', leveOpen);
+    document.querySelectorAll('#leve-subnav [data-leve-view]').forEach(button => button.classList.toggle('active', leveOpen && button.dataset.leveView === state.leveView));
     document.querySelector('#trade-subnav').classList.toggle('open', tradeOpen);
     document.querySelectorAll('[data-trade-view]').forEach(button => button.classList.toggle('active', state.page === 'trade' && button.dataset.tradeView === state.tradeView));
     if (state.page === 'home') renderHome();
