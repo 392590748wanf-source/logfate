@@ -1,7 +1,7 @@
 {
   "name": "gilfate",
   "productName": "GilFate",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "packageManager": "pnpm@11.19.0",
   "description": "FF14 装备与潜水艇成本、库存及销售利润账本",
   "author": "392590748wanf-source",
