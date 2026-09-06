@@ -13,6 +13,14 @@ if ([string]::IsNullOrWhiteSpace($pathData)) { throw 'Gil.svg has no renderable 
 $size = 256.0
 $visual = [System.Windows.Media.DrawingVisual]::new()
 $context = $visual.RenderOpen()
+$cornerRadius = $size * 0.18
+$context.DrawRoundedRectangle(
+  [System.Windows.Media.Brushes]::White,
+  $null,
+  [System.Windows.Rect]::new(0, 0, $size, $size),
+  $cornerRadius,
+  $cornerRadius
+)
 $context.PushTransform([System.Windows.Media.ScaleTransform]::new($size / 1000, $size / 1000))
 $context.DrawGeometry([System.Windows.Media.Brushes]::Black, $null, [System.Windows.Media.Geometry]::Parse($pathData))
 $context.Pop()

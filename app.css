@@ -31,6 +31,18 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .update-panel h3, .update-panel p { margin: 0; }
 .update-panel h3 { font-size: 15px; }
 .update-panel p { min-height: 20px; }
+.update-source-settings { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 12px; }
+.update-source-settings summary { color: var(--ink); cursor: pointer; font-size: 13px; font-weight: 600; }
+.update-source-settings[open] summary { margin-bottom: 10px; }
+.update-source-options { display: grid; gap: 7px; }
+.update-source-option { display: flex; align-items: center; gap: 7px; color: var(--ink); cursor: pointer; font-size: 13px; }
+.update-source-option input { margin: 0; }
+.update-source-custom { display: grid; gap: 5px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.update-source-custom input { width: 100%; padding: 7px 8px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--ink); font: inherit; }
+.update-source-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.update-source-actions .btn { padding: 6px 9px; }
+.update-source-warning { margin: 9px 0 0; color: #8a661d; font-size: 11px; line-height: 1.5; }
+.update-source-status { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .app-contextbar { display: none; min-height: 39px; padding: 0 28px; border-bottom: 1px solid var(--line); background: #fff; }
 .app-contextbar.has-open-nav { display: flex; }
 .context-nav { display: none; align-items: center; gap: 6px; padding: 0; }

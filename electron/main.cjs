@@ -8,6 +8,15 @@ const APP_ICON = path.join(__dirname, '..', 'build', 'icon.ico');
 const BACKUP_FORMAT = 'ff14-fantasy-backup';
 const BACKUP_VERSION = 1;
 const DATA_SCHEMA = 1;
+const UPDATE_SOURCE_SCHEMA = 1;
+const GITHUB_RELEASE_DOWNLOAD_URL = 'https://github.com/392590748wanf-source/logfate/releases/latest/download';
+const UPDATE_SOURCE_OPTIONS = Object.freeze([
+  { id: 'direct', name: '直连 GitHub', prefix: '' },
+  { id: 'ghfast', name: 'ghfast.top', prefix: 'https://ghfast.top/' },
+  { id: 'moeyy', name: 'gh-proxy.moeyy.xyz', prefix: 'https://gh-proxy.moeyy.xyz/' },
+  { id: 'jasonzeng', name: 'gh.jasonzeng.dev', prefix: 'https://gh.jasonzeng.dev/' },
+  { id: 'custom', name: '自定义加速服务', prefix: '' }
+]);
 // 正式站点优先；域名切换完成前或生产站故障时，保留测试站资料包作为安全回退。
 const DATA_MANIFEST_URLS = [
   'https://logfate.com/data/manifest.json',
@@ -34,8 +43,11 @@ const BACKUP_KEYS = new Set([
 ]);
 
 let mainWindow;
+let updateSourceSettings;
+let updateDownloadActive = false;
 
 const bundledDataManifestPath = () => path.join(__dirname, '..', 'data', 'manifest.json');
+const updateSourceSettingsPath = () => path.join(app.getPath('userData'), 'update-source.json');
 const dataCacheDirectory = () => path.join(app.getPath('userData'), 'data-cache');
 const dataCachePaths = () => ({
   directory: dataCacheDirectory(),
@@ -44,6 +56,75 @@ const dataCachePaths = () => ({
 });
 const sha256 = value => createHash('sha256').update(value).digest('hex');
 const sameVersion = (left, right) => String(left || '') === String(right || '');
+const defaultUpdateSourceSettings = () => ({ schema: UPDATE_SOURCE_SCHEMA, id: 'direct', customUrl: '' });
+const updateSourceOption = id => UPDATE_SOURCE_OPTIONS.find(option => option.id === id);
+const normalizeCustomUpdatePrefix = value => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw new Error('自定义加速服务地址无效。'); }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('自定义加速服务必须是无参数的 HTTPS 地址。');
+  }
+  return `${raw.replace(/\/+$/, '')}/`;
+};
+const normalizeUpdateSourceSettings = value => {
+  const id = updateSourceOption(value?.id)?.id || 'direct';
+  const customUrl = normalizeCustomUpdatePrefix(value?.customUrl);
+  if (id === 'custom' && !customUrl) throw new Error('请填写自定义加速服务地址。');
+  return { schema: UPDATE_SOURCE_SCHEMA, id, customUrl };
+};
+const updateSourceDetails = value => {
+  const settings = normalizeUpdateSourceSettings(value);
+  const option = updateSourceOption(settings.id);
+  const prefix = settings.id === 'custom' ? settings.customUrl : option.prefix;
+  return {
+    ...settings,
+    name: option.name,
+    feedUrl: settings.id === 'direct' ? GITHUB_RELEASE_DOWNLOAD_URL : `${prefix}${GITHUB_RELEASE_DOWNLOAD_URL}`
+  };
+};
+const readUpdateSourceSettings = async () => {
+  if (updateSourceSettings) return updateSourceSettings;
+  try {
+    const value = JSON.parse(await fs.readFile(updateSourceSettingsPath(), 'utf8'));
+    updateSourceSettings = normalizeUpdateSourceSettings(value);
+  } catch {
+    updateSourceSettings = defaultUpdateSourceSettings();
+  }
+  return updateSourceSettings;
+};
+const writeUpdateSourceSettings = async value => {
+  const settings = normalizeUpdateSourceSettings(value);
+  const file = updateSourceSettingsPath();
+  const temporary = `${file}.${randomUUID()}.next`;
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(temporary, JSON.stringify(settings, null, 2), 'utf8');
+  await fs.rename(temporary, file);
+  updateSourceSettings = settings;
+  return settings;
+};
+const applyUpdateSource = async () => {
+  const details = updateSourceDetails(await readUpdateSourceSettings());
+  autoUpdater.setFeedURL({ provider: 'generic', url: details.feedUrl });
+  return details;
+};
+const testUpdateSource = async value => {
+  const details = updateSourceDetails(value);
+  let response;
+  try {
+    response = await fetch(`${details.feedUrl}/latest.yml`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  } catch (error) {
+    throw new Error(`无法连接 ${details.name}：${error.name === 'TimeoutError' ? '连接超时。' : error.message}`);
+  }
+  if (!response.ok) throw new Error(`${details.name} 返回 ${response.status}。`);
+  const raw = await response.text();
+  const version = raw.match(/^version:\s*([^\s]+)\s*$/m)?.[1];
+  const artifact = raw.match(/^path:\s*([^\s]+)\s*$/m)?.[1];
+  const checksum = raw.match(/^sha512:\s*([^\s]+)\s*$/m)?.[1];
+  if (!version || !artifact || !checksum) throw new Error(`${details.name} 返回的更新清单格式无效。`);
+  return { ...details, version };
+};
 
 const validateDataManifest = manifest => {
   if (!manifest || Number(manifest.schema) !== DATA_SCHEMA || !manifest.version || !manifest.publishedAt || !manifest.bundle) {
@@ -183,16 +264,26 @@ const createWindow = () => {
   });
 };
 
-const configureAutoUpdater = () => {
+const configureAutoUpdater = async () => {
   if (!app.isPackaged) return;
+  await applyUpdateSource();
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking', message: '正在检查客户端更新…' }));
-  autoUpdater.on('update-available', info => sendUpdateStatus({ state: 'available', version: info.version, message: `发现新版本 ${info.version}，正在下载…` }));
+  autoUpdater.on('update-available', info => {
+    updateDownloadActive = true;
+    sendUpdateStatus({ state: 'available', version: info.version, message: `发现新版本 ${info.version}，正在下载…` });
+  });
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'latest', message: '当前已是最新版本。' }));
   autoUpdater.on('download-progress', progress => sendUpdateStatus({ state: 'downloading', percent: Math.round(progress.percent || 0), message: `正在下载更新：${Math.round(progress.percent || 0)}%` }));
-  autoUpdater.on('update-downloaded', info => sendUpdateStatus({ state: 'downloaded', version: info.version, message: `新版本 ${info.version} 已下载，可重启安装。` }));
-  autoUpdater.on('error', error => sendUpdateStatus({ state: 'error', message: `更新检查失败：${error.message}` }));
+  autoUpdater.on('update-downloaded', info => {
+    updateDownloadActive = false;
+    sendUpdateStatus({ state: 'downloaded', version: info.version, message: `新版本 ${info.version} 已下载，可重启安装。` });
+  });
+  autoUpdater.on('error', error => {
+    updateDownloadActive = false;
+    sendUpdateStatus({ state: 'error', message: `更新检查失败：${error.message}` });
+  });
   setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 2500);
   setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 };
@@ -227,6 +318,7 @@ ipcMain.handle('backup:import', async () => {
 ipcMain.handle('updater:check', async () => {
   if (!app.isPackaged) return { available: false, message: '开发模式下不检查更新。' };
   try {
+    await applyUpdateSource();
     await autoUpdater.checkForUpdates();
     return { available: true };
   } catch (error) {
@@ -236,6 +328,41 @@ ipcMain.handle('updater:check', async () => {
 
 ipcMain.handle('updater:restart', () => {
   if (app.isPackaged) autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('updater:source:get', async () => {
+  const details = updateSourceDetails(await readUpdateSourceSettings());
+  return {
+    ...details,
+    options: UPDATE_SOURCE_OPTIONS.map(({ id, name }) => ({ id, name })),
+    busy: updateDownloadActive
+  };
+});
+
+ipcMain.handle('updater:source:save', async (_event, value) => {
+  if (updateDownloadActive) return { available: false, message: '正在下载客户端更新，完成后再切换下载源。' };
+  try {
+    const settings = await writeUpdateSourceSettings(value);
+    const details = app.isPackaged ? await applyUpdateSource() : updateSourceDetails(settings);
+    return {
+      available: true,
+      ...details,
+      options: UPDATE_SOURCE_OPTIONS.map(({ id, name }) => ({ id, name })),
+      busy: false,
+      message: `已切换为 ${details.name}。`
+    };
+  } catch (error) {
+    return { available: false, message: error.message || '保存更新下载源失败。' };
+  }
+});
+
+ipcMain.handle('updater:source:test', async (_event, value) => {
+  try {
+    const details = await testUpdateSource(value);
+    return { available: true, ...details, message: `连接成功：检测到最新版本 v${details.version}。` };
+  } catch (error) {
+    return { available: false, message: error.message || '连接检测失败。' };
+  }
 });
 
 ipcMain.handle('data:status', async () => {
@@ -285,9 +412,9 @@ ipcMain.handle('data:apply', async () => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
-  configureAutoUpdater();
+  await configureAutoUpdater().catch(error => sendUpdateStatus({ state: 'error', message: `更新初始化失败：${error.message}` }));
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
 

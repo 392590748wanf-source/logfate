@@ -4391,6 +4391,52 @@ window.addEventListener('load', async () => {
   const dataUpdateApply = document.querySelector('#data-update-apply');
   const desktopUpdateCurrent = document.querySelector('#desktop-update-current');
   const desktopUpdateLatest = document.querySelector('#desktop-update-latest');
+  const clientUpdatePanel = desktopUpdatePanels.querySelector('.update-panel:nth-child(2)');
+  if (desktopBridge && clientUpdatePanel) {
+    clientUpdatePanel.insertAdjacentHTML('beforeend', `<details id="update-source-settings" class="update-source-settings"><summary>更新下载源</summary><div id="update-source-options" class="update-source-options"></div><label id="update-source-custom" class="update-source-custom" hidden>自定义加速服务地址<input id="update-source-custom-input" type="url" inputmode="url" autocomplete="url" placeholder="例如 https://ghfast.top/"></label><div class="update-source-actions"><button id="update-source-save" class="btn secondary" type="button">保存下载源</button><button id="update-source-test" class="btn secondary" type="button">连接检测</button></div><p id="update-source-warning" class="update-source-warning" hidden>第三方加速服务由其运营方提供，可用性与安全性无法由 GilFate 保证。</p><p id="update-source-status" class="update-source-status">正在读取下载源设置…</p></details>`);
+  }
+  const updateSourceOptions = document.querySelector('#update-source-options');
+  const updateSourceCustom = document.querySelector('#update-source-custom');
+  const updateSourceCustomInput = document.querySelector('#update-source-custom-input');
+  const updateSourceSave = document.querySelector('#update-source-save');
+  const updateSourceTest = document.querySelector('#update-source-test');
+  const updateSourceWarning = document.querySelector('#update-source-warning');
+  const updateSourceStatus = document.querySelector('#update-source-status');
+  let updateSourceBusy = false;
+  const selectedUpdateSource = () => updateSourceOptions?.querySelector('input[name="update-source"]:checked')?.value || 'direct';
+  const updateSourceValue = () => ({ id: selectedUpdateSource(), customUrl: updateSourceCustomInput?.value || '' });
+  const setUpdateSourceBusy = busy => {
+    updateSourceBusy = Boolean(busy);
+    updateSourceOptions?.querySelectorAll('input').forEach(input => { input.disabled = updateSourceBusy; });
+    if (updateSourceCustomInput) updateSourceCustomInput.disabled = updateSourceBusy;
+    if (updateSourceSave) updateSourceSave.disabled = updateSourceBusy;
+    if (updateSourceTest) updateSourceTest.disabled = updateSourceBusy;
+  };
+  const refreshUpdateSourceVisibility = () => {
+    const isCustom = selectedUpdateSource() === 'custom';
+    if (updateSourceCustom) updateSourceCustom.hidden = !isCustom;
+    if (updateSourceWarning) updateSourceWarning.hidden = selectedUpdateSource() === 'direct';
+  };
+  const renderUpdateSource = source => {
+    if (!updateSourceOptions) return;
+    const options = Array.isArray(source?.options) ? source.options : [];
+    updateSourceOptions.innerHTML = options.map(option => `<label class="update-source-option"><input type="radio" name="update-source" value="${option.id}"${option.id === source.id ? ' checked' : ''}>${option.name}</label>`).join('');
+    if (updateSourceCustomInput) updateSourceCustomInput.value = source.customUrl || '';
+    updateSourceOptions.querySelectorAll('input').forEach(input => { input.onchange = refreshUpdateSourceVisibility; });
+    refreshUpdateSourceVisibility();
+    setUpdateSourceBusy(source.busy || updateSourceBusy);
+  };
+  const refreshUpdateSource = async () => {
+    if (!desktopBridge?.getUpdateSource || !updateSourceStatus) return;
+    updateSourceStatus.textContent = '正在读取下载源设置…';
+    try {
+      const source = await desktopBridge.getUpdateSource();
+      renderUpdateSource(source);
+      updateSourceStatus.textContent = `当前使用：${source.name}。`;
+    } catch (error) {
+      updateSourceStatus.textContent = error.message || '无法读取下载源设置。';
+    }
+  };
   const formatDataVersion = info => info?.version ? String(info.version) : '未读取到资料版本';
   const refreshDataStatus = async () => {
     const result = await desktopBridge?.getDataStatus();
@@ -4404,7 +4450,7 @@ window.addEventListener('load', async () => {
   document.querySelector('#backup-toggle').onclick = () => {
     setBackupStatus(desktopBridge ? '客户端数据保存在本机。导入会覆盖当前账本。' : '导出可保存浏览器账本；导入会覆盖当前数据。');
     desktopUpdatePanels.hidden = !desktopBridge;
-    if (desktopBridge) refreshDataStatus();
+    if (desktopBridge) { refreshDataStatus(); refreshUpdateSource(); }
     if (!backupDialog.open) backupDialog.showModal();
   };
   document.querySelector('#backup-export').onclick = async () => {
@@ -4435,6 +4481,25 @@ window.addEventListener('load', async () => {
     const result = await desktopBridge?.checkForUpdates();
     if (result?.message) desktopUpdateLatest.textContent = result.message;
   };
+  updateSourceSave?.addEventListener('click', async () => {
+    if (!desktopBridge?.saveUpdateSource || updateSourceBusy) return;
+    updateSourceStatus.textContent = '正在保存下载源…';
+    const result = await desktopBridge.saveUpdateSource(updateSourceValue());
+    if (!result?.available) {
+      updateSourceStatus.textContent = result?.message || '保存下载源失败。';
+      return;
+    }
+    renderUpdateSource(result);
+    updateSourceStatus.textContent = result.message || `已切换为 ${result.name}。`;
+  });
+  updateSourceTest?.addEventListener('click', async () => {
+    if (!desktopBridge?.testUpdateSource || updateSourceBusy) return;
+    updateSourceTest.disabled = true;
+    updateSourceStatus.textContent = '正在检测连接…';
+    const result = await desktopBridge.testUpdateSource(updateSourceValue());
+    updateSourceTest.disabled = updateSourceBusy;
+    updateSourceStatus.textContent = result?.message || '连接检测失败。';
+  });
   document.querySelector('#data-update-check').onclick = async () => {
     dataUpdateLatest.textContent = '正在检查资料更新…';
     dataUpdateApply.hidden = true;
@@ -4467,6 +4532,7 @@ window.addEventListener('load', async () => {
   document.querySelector('#desktop-update-restart').onclick = () => desktopBridge?.restartToUpdate();
   if (desktopBridge) desktopBridge.onUpdateStatus(status => {
     desktopUpdateLatest.textContent = status.message || '客户端更新状态已更新。';
+    setUpdateSourceBusy(status.state === 'available' || status.state === 'downloading');
     const restart = document.querySelector('#desktop-update-restart');
     restart.hidden = status.state !== 'downloaded';
     if (status.state === 'downloaded' && confirm(`${status.message}\n现在重启并安装吗？`)) desktopBridge.restartToUpdate();
