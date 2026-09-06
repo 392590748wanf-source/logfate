@@ -81,8 +81,8 @@ window.FF14_MATERIAL_SOURCES = {
 // 仅记录潜水艇递归配方实际使用的兑换材料。凭证价格由应用内采购记录或市场快照提供。
 window.FF14_EXCHANGE_SOURCES = {
   carriers: {
-    '15857': { name: '阿尔基克薰衣草', kind: '薰衣草/风茄兑换' },
-    '15858': { name: '虚无界风茄', kind: '薰衣草/风茄兑换' }
+    '15857': { name: '阿尔基克薰衣草', icon: 25002, kind: '薰衣草/风茄兑换' },
+    '15858': { name: '虚无界风茄', icon: 25004, kind: '薰衣草/风茄兑换' }
   },
   routes: [
     { kind: '薰衣草/风茄兑换', label: '阿尔基克薰衣草兑换', carrierId: '15857', outputs: { '12526': 1, '12524': 3, '12522': 2 } },

@@ -222,6 +222,14 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .craft-scrip-recommendation dt { color: var(--muted); font-size: 12px; }
 .craft-scrip-recommendation dd { margin: 0; color: var(--ink); font-weight: 700; font-size: 12px; }
 .craft-scrip-exchanges { margin-top: 0; }
+.craft-scrip-material-table { overflow: hidden; }
+.craft-scrip-material-table .ledger { min-width: 0; table-layout: fixed; }
+.craft-scrip-material-table .ledger th, .craft-scrip-material-table .ledger td { padding: 8px 7px; white-space: normal; overflow-wrap: anywhere; }
+.craft-scrip-material-table .ledger th:nth-child(1) { width: 21%; }
+.craft-scrip-material-table .ledger th:nth-child(2) { width: 40%; }
+.craft-scrip-material-table .ledger th:nth-child(3) { width: 15%; }
+.craft-scrip-material-table .ledger th:nth-child(4), .craft-scrip-material-table .ledger th:nth-child(5) { width: 12%; }
+.craft-scrip-material-table .craft-scrip-ratio { text-align: center; }
 .craft-scrip-exchange-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .craft-scrip-equipment-group { border-top: 1px solid var(--line); }
 .craft-scrip-group-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 13px; background: #fbfbfb; }
