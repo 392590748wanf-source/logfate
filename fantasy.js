@@ -891,9 +891,8 @@ window.addEventListener('load', async () => {
   };
   const showSubmarineRecommendationTag = material => {
     const choice = submarineSourceChoice(material);
-    // 常规采集品只展示客观分类与价格；不把“采集”伪装成一个需要执行的推荐操作。
-    if (!isSubmarineIntermediate(material) && staticSubmarineKind(material) === '常规采集品') return false;
     // 无制作配方的原材料推荐市场采购时，价格列已足够表达取得方式，无需重复标签。
+    // 但若原材料当前推荐兑换、NPC 等非市场来源，仍必须显示对应推荐标签。
     return Boolean(isSubmarineIntermediate(material) || choice.label !== '市场采购');
   };
   const recommendedNpcMaterial = material => submarineSourceChoice(material).kind === 'NPC 购买材料';
@@ -1080,9 +1079,11 @@ window.addEventListener('load', async () => {
     const record = leveSourceRecord(uid), choice = leveGuideChoice(uid);
     const npc = Number(record.npc?.price || 0) > 0 ? record.npc : npcCandidate(material);
     let kind;
+    // 兑换凭证本身也必须出现在理符指导价中，供兑换路线读取其市场价或采购均价。
+    if (voucherCarrierIds.has(uid)) kind = '薰衣草/风茄兑换';
     // 分类表达可用的取得方式，不随当前最低成本改变；例如 NPC 可购的黑铁锭
     // 在市场更便宜时仍列在 NPC 分类下，并以“推荐：市场采购”提示当前建议。
-    if (Number(npc?.price || 0) > 0) kind = 'NPC 购买材料';
+    else if (Number(npc?.price || 0) > 0) kind = 'NPC 购买材料';
     else if (isExchangeChoice(choice)) kind = choice.kind;
     else if (leveRecipeNode(uid) && ['direct-purchase', 'direct-market'].includes(choice.key)) kind = '市场采购半成品';
     else {
@@ -1109,6 +1110,10 @@ window.addEventListener('load', async () => {
     const filterKey = [selectedLeveGuidePlan()?.id || '', state.leveGuideJob, state.leveGuideStart, state.leveGuideTarget].join('|');
     const cached = guideIndexCache.leve.get(filterKey);
     if (cached) {
+      voucherCarrierIds.forEach(uid => {
+        const material = leveMaterial(uid);
+        if (material && !isLeveGuideExcluded(material)) cached.add(String(uid));
+      });
       const candidates = data.m.filter(material => cached.has(String(material.uid)) && !isLeveGuideExcluded(material));
       window.FF14_LEVE_GUIDE_CLASSIFICATION_AUDIT = leveGuideClassificationAudit(candidates);
       return candidates.filter(material => !isLeveSelfCraftIntermediate(material)).sort((left, right) => Number(left.uid) - Number(right.uid));
@@ -1135,6 +1140,10 @@ window.addEventListener('load', async () => {
         if (material && !isLeveGuideExcluded(material)) required.add(String(material.uid));
       }
       visit(route.itemId);
+    });
+    voucherCarrierIds.forEach(uid => {
+      const material = leveMaterial(uid);
+      if (material && !isLeveGuideExcluded(material)) required.add(String(uid));
     });
     guideIndexCache.leve.set(filterKey, required);
     const candidates = data.m.filter(material => required.has(String(material.uid)) && !isLeveGuideExcluded(material));
@@ -2110,7 +2119,7 @@ window.addEventListener('load', async () => {
       const sourceAware = state.basicCategory === 'submarine' || state.basicCategory === 'leve';
       const choice = state.basicCategory === 'leve' ? leveGuideChoice(material.uid) : sourceAware ? submarineSourceChoice(material) : null;
       const recommendation = sourceAware && (state.basicCategory === 'leve'
-        ? leveGuideKind(material) !== '常规采集品'
+        ? leveGuideKind(material) !== '常规采集品' && !voucherCarrierIds.has(String(material.uid))
         : showSubmarineRecommendationTag(material)) ? recommendationTag(choice) : '';
       const scripTags = state.basicCategory === 'equipment'
         ? craftScripRoutesFor(material.uid).map(route => `<span class="scrip-ticket ${route.ticket}">${route.ticket === 'orange' ? '橙票兑换' : '紫票兑换'}</span>`).join('')
