@@ -1078,8 +1078,11 @@ window.addEventListener('load', async () => {
     const uid = String(material?.uid || '');
     if (leveGuideKindCache.has(uid)) return leveGuideKindCache.get(uid);
     const record = leveSourceRecord(uid), choice = leveGuideChoice(uid);
+    const npc = Number(record.npc?.price || 0) > 0 ? record.npc : npcCandidate(material);
     let kind;
-    if (choice.key === 'npc') kind = 'NPC 购买材料';
+    // 分类表达可用的取得方式，不随当前最低成本改变；例如 NPC 可购的黑铁锭
+    // 在市场更便宜时仍列在 NPC 分类下，并以“推荐：市场采购”提示当前建议。
+    if (Number(npc?.price || 0) > 0) kind = 'NPC 购买材料';
     else if (isExchangeChoice(choice)) kind = choice.kind;
     else if (leveRecipeNode(uid) && ['direct-purchase', 'direct-market'].includes(choice.key)) kind = '市场采购半成品';
     else {
