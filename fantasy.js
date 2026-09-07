@@ -2903,7 +2903,7 @@ window.addEventListener('load', async () => {
     document.querySelector('#recipe-reference-content').innerHTML = `${includeSource ? submarineMaterialSourceMarkup(material) : ''}<div class="cards"><div class="card"><small>制作职业</small><b>${recipe.j === 0 ? '部队合建' : '职业 ' + recipe.j}</b></div><div class="card"><small>每批产出</small><b>${yieldCount}</b></div></div><section class="sales-history"><h3>直接制作素材</h3>${referenceTable(direct, '直接素材参考成本')}</section><section class="sales-history"><h3>当前最低来源制作成本</h3>${referenceTable(chosenCostRows, '按当前来源制作成本')}</section><section class="sales-history"><h3>递归基础素材参考</h3>${referenceTable(leafRows, '基础素材参考成本')}</section>`;
     document.querySelector('#recipe-reference-dialog').showModal();
   }
-  function openLeveMaterialSourceDetail(uid) {
+  function openLeveMaterialSourceDetail(uid, history = []) {
     uid = String(uid || '');
     const material = leveMaterial(uid);
     if (!material) return;
@@ -2913,10 +2913,20 @@ window.addEventListener('load', async () => {
     const craftBatchTotal = craftRows.reduce((sum, row) => sum + Number(row.batchTotal || 0), 0);
     const craftMissing = craftRows.some(row => !(Number(row.unit) > 0));
     const craftUnit = leveRecipeUnitCost(uid, new Set(), false);
-    const craftTable = craftRows.length ? `<section class="sales-history"><h3>自制成本采用的下级来源${yieldCount > 1 ? ` · 每批产出 ${yieldCount} 个` : ''}</h3><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>下级材料</th><th>数量</th><th>采用方式</th><th>单价</th><th>${yieldCount > 1 ? '批次合价' : '合价'}</th></tr></thead><tbody>${craftRows.map(row => `<tr><td class="label">${itemLabelMarkup(row.uid, row.name)}</td><td>${Number(row.batchQuantity.toFixed(4))}</td><td>${recommendationTag(row.choice, row.choice.label)}</td><td>${row.unit > 0 ? money(row.unit) : '未获取'}</td><td>${row.unit > 0 ? money(row.batchTotal) : '—'}</td></tr>`).join('')}</tbody><tfoot><tr><th colspan="4">${yieldCount > 1 ? `批次合价 ${craftMissing ? '部分未获取' : money(craftBatchTotal)} ÷ 每批产出 ${yieldCount} 个` : '按当前来源制作成本'}</th><th>${craftMissing ? '部分未获取' : money(craftUnit || 0)}</th></tr></tfoot></table></div></section>` : '';
+    const craftTable = craftRows.length ? `<section class="sales-history"><h3>自制成本采用的下级来源${yieldCount > 1 ? ` · 每批产出 ${yieldCount} 个` : ''}</h3><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>下级材料</th><th>数量</th><th>采用方式</th><th>单价</th><th>${yieldCount > 1 ? '批次合价' : '合价'}</th><th>操作</th></tr></thead><tbody>${craftRows.map(row => `<tr><td class="label">${leveRecipeNode(row.uid) ? `<button type="button" class="bundle-link" data-leve-source-detail-ingredient="${row.uid}">${itemLabelMarkup(row.uid, row.name)}</button>` : itemLabelMarkup(row.uid, row.name)}</td><td>${Number(row.batchQuantity.toFixed(4))}</td><td>${recommendationTag(row.choice, row.choice.label)}</td><td>${row.unit > 0 ? money(row.unit) : '未获取'}</td><td>${row.unit > 0 ? money(row.batchTotal) : '—'}</td><td><button type="button" class="btn secondary" data-leve-source-detail-purchase="${row.uid}">记录采购</button></td></tr>`).join('')}</tbody><tfoot><tr><th colspan="5">${yieldCount > 1 ? `批次合价 ${craftMissing ? '部分未获取' : money(craftBatchTotal)} ÷ 每批产出 ${yieldCount} 个` : '按当前来源制作成本'}</th><th>${craftMissing ? '部分未获取' : money(craftUnit || 0)}</th></tr></tfoot></table></div></section>` : '';
+    const previousUid = history[history.length - 1], previousMaterial = previousUid ? leveMaterial(previousUid) : null;
+    const actions = `<div class="modal-actions" style="justify-content:flex-start">${previousMaterial ? `<button type="button" class="btn secondary" data-leve-source-detail-back>返回${previousMaterial.n}来源比价</button>` : ''}<button type="button" class="btn" data-leve-source-detail-purchase="${material.uid}">记录采购</button></div>`;
     document.querySelector('#bundle-detail-meta').textContent = '材料指导价 > 理符推荐材料 > 来源比价';
     document.querySelector('#bundle-detail-title').textContent = material.n + '来源比价';
-    document.querySelector('#bundle-detail-content').innerHTML = `<div class="cards"><div class="card"><small>推荐方式</small><b>${choice.label}</b><div class="meta">${choice.source}</div></div><div class="card"><small>当前最低有效单价</small><b>${choice.price > 0 ? money(choice.price) : '待补价'}</b><div class="meta">仅比较有效的正数价格</div></div></div>${sourceChoiceComparisonTable(choice)}${craftTable}`;
+    document.querySelector('#bundle-detail-content').innerHTML = `${actions}<div class="cards"><div class="card"><small>推荐方式</small><b>${choice.label}</b><div class="meta">${choice.source}</div></div><div class="card"><small>当前最低有效单价</small><b>${choice.price > 0 ? money(choice.price) : '待补价'}</b><div class="meta">仅比较有效的正数价格</div></div></div>${sourceChoiceComparisonTable(choice)}${craftTable}`;
+    document.querySelectorAll('[data-leve-source-detail-ingredient]').forEach(button => button.onclick = () => openLeveMaterialSourceDetail(button.dataset.leveSourceDetailIngredient, [...history, String(material.uid)]));
+    document.querySelectorAll('[data-leve-source-detail-purchase]').forEach(button => button.onclick = () => {
+      const target = leveMaterial(button.dataset.leveSourceDetailPurchase);
+      if (!target) return;
+      document.querySelector('#bundle-detail-dialog').close();
+      openPurchaseManager(target);
+    });
+    document.querySelector('[data-leve-source-detail-back]')?.addEventListener('click', () => openLeveMaterialSourceDetail(previousUid, history.slice(0, -1)));
     if (!document.querySelector('#bundle-detail-dialog').open) document.querySelector('#bundle-detail-dialog').showModal();
   }
   function openLeveRecipeReference(uid, isDelivery = false) {
@@ -2974,7 +2984,10 @@ window.addEventListener('load', async () => {
         const missingCost = !(Number(row.cost) > 0) && Number(row.quantity) > 0;
         const unit = Number(row.quantity) ? Number(row.cost || 0) / Number(row.quantity) : 0;
         const tag = grouped && row.sourceChoice && (row.pinnedNpc || row.pinnedExchange || row.pinnedMarket) ? recommendationTag(row.sourceChoice) : '';
-        const name = row.timeSurcharge ? `<span class="item-label"><span>${row.name}</span></span>` : `<button class="submarine-material-link" data-leve-recipe-purchase="${row.uid}">${itemLabelMarkup(row.uid, row.name, row.hq ? { hq: true } : {})}</button>`;
+        const canOpenSourceDetail = !row.timeSurcharge && String(row.uid) !== uid && Boolean(leveRecipeNode(row.uid));
+        const name = row.timeSurcharge ? `<span class="item-label"><span>${row.name}</span></span>` : canOpenSourceDetail
+          ? `<button class="submarine-material-link" data-leve-recipe-source-detail="${row.uid}">${itemLabelMarkup(row.uid, row.name, row.hq ? { hq: true } : {})}</button>`
+          : `<button class="submarine-material-link" data-leve-recipe-purchase="${row.uid}">${itemLabelMarkup(row.uid, row.name, row.hq ? { hq: true } : {})}</button>`;
         return `<tr><td class="label">${tag}${name}</td><td>${Number(row.quantity.toFixed(4))}</td><td>${missingCost ? '未获取' : money(unit)}</td><td>${missingCost ? '—' : money(row.cost)}</td></tr>`;
       };
       const sections = grouped ? [
@@ -2988,6 +3001,7 @@ window.addEventListener('load', async () => {
     };
     const source = recipe.sourceUrl ? `<a href="${recipe.sourceUrl}" target="_blank" rel="noreferrer">查看 Garland 配方</a>` : 'Garland 来源未记录';
     document.querySelector('#bundle-detail-content').innerHTML = `${missing.length ? `<div class="status">以下基础材料未获取单价：${[...new Set(missing)].join('、')}。</div>` : ''}<div class="detail-columns three"><section class="detail-column"><h3>成品清单</h3>${leveCostTable(finished, '成品清单总成本', unitCost || 0)}</section><section class="detail-column"><h3>直接素材</h3>${leveCostTable(direct, '直接素材总成本', unitCost || 0, true)}</section><section class="detail-column"><h3>基础素材</h3>${leveCostTable(basic, '基础素材总成本', unitCost || 0, true)}</section></div><p class="meta" style="margin-top:14px">${source} · 以制作 1 个${isDelivery ? ' HQ 交付物' : '材料'}为成本口径；每批产出 ${yieldCount} 个。</p>`;
+    document.querySelectorAll('[data-leve-recipe-source-detail]').forEach(button => button.onclick = () => openLeveMaterialSourceDetail(button.dataset.leveRecipeSourceDetail));
     document.querySelectorAll('[data-leve-recipe-purchase]').forEach(button => button.onclick = () => { const target = leveMaterial(button.dataset.leveRecipePurchase); if (target) openPurchaseManager(target); });
     document.querySelector('#bundle-detail-dialog').showModal();
   }
