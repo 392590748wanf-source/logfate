@@ -13,6 +13,7 @@ node_modules/
 .pnpm-store/
 release/
 dist/
+dist-web/
 .DS_Store
 Thumbs.db
 tools/.cache/

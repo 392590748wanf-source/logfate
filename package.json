@@ -18,6 +18,7 @@
     "leves:icons": "node tools/sync-levequest-icons.mjs",
     "icons:sync": "node tools/sync-garland-icons.mjs",
     "icon:build": "powershell.exe -ExecutionPolicy Bypass -File tools/generate-app-icon.ps1",
+    "web:build": "node tools/build-web-deploy.mjs",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "release": "pnpm run dist:win"
   },
