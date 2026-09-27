@@ -61,7 +61,7 @@ function New-IconEntry([int]$size) {
   }
 }
 
-$images = @(16, 20, 24, 32, 40, 48, 64, 128 | ForEach-Object { New-IconEntry $_ })
+$images = @(16, 20, 24, 32, 40, 48, 64, 128, 256 | ForEach-Object { New-IconEntry $_ })
 
 $stream = [System.IO.MemoryStream]::new()
 $writer = [System.IO.BinaryWriter]::new($stream)
