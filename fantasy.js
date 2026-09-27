@@ -883,7 +883,9 @@ window.addEventListener('load', async () => {
     const uid = String(material?.uid || ''), choice = submarineSourceChoice(material);
     // 两种兑换凭证始终置顶显示，方便记录其市场价或采购均价。
     if (voucherCarrierIds.has(uid)) return '薰衣草/风茄兑换';
-    if (choice.key === 'npc') return 'NPC 购买材料';
+    // 与理符材料指导价一致：分类表达可用的取得方式，而不是当前最低成本。
+    // NPC 可购买的材料即使市场更便宜，也保留在 NPC 名录并显示市场采购推荐。
+    if (Number(npcCandidate(material)?.price || 0) > 0) return 'NPC 购买材料';
     if (isExchangeChoice(choice)) return choice.kind;
     // 只有可制作半成品推荐市场采购时才独立集中；原材料回到其客观来源分类。
     if (isSubmarineIntermediate(material) && choice.label === '市场采购') return '市场采购半成品';
@@ -895,7 +897,7 @@ window.addEventListener('load', async () => {
     // 但若原材料当前推荐兑换、NPC 等非市场来源，仍必须显示对应推荐标签。
     return Boolean(isSubmarineIntermediate(material) || choice.label !== '市场采购');
   };
-  const recommendedNpcMaterial = material => submarineSourceChoice(material).kind === 'NPC 购买材料';
+  const recommendedNpcMaterial = material => Number(npcCandidate(material)?.price || 0) > 0;
   const hasComparableSubmarineSources = material => submarineSourceChoice(material).options.filter(option => Number(option.price) > 0).length >= 2;
   const selfCraftLeafIds = (uid, leaves = new Set(), trail = new Set()) => {
     uid = String(uid); if (trail.has(uid)) return leaves;

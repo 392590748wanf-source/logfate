@@ -21,7 +21,7 @@ window.FF14_MATERIAL_SOURCES = {
   '5395': { name: '云杉原木', submarineKinds: ['限时采集品'], tradeCategories: ['botanist'] },
   '5263': { name: '石蜥蜴的蛋', submarineKinds: ['怪物掉落'] },
   '5314': { name: '圣蜥蜴的粗皮', submarineKinds: ['怪物掉落'] },
-  '5436': { name: '山羊角', submarineKinds: ['怪物掉落'] },
+  '5436': { name: '山羊角', submarineKinds: ['怪物掉落'], npc: { price: 238, source: '地灵族杂用商人' } },
   '5501': { name: '灰汁', submarineKinds: ['军票兑换'] },
   '5512': { name: '玻璃板', npc: { price: 53, source: '住宅区素材商人', force: true } },
   '5518': { name: '岩盐', npc: { price: 3, source: '乔西、艾丝米奈特等素材商人' } },
