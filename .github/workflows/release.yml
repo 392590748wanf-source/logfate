@@ -29,6 +29,12 @@ jobs:
         run: |
           $version = node -p "require('./package.json').version"
           if ("v$version" -ne "${{ github.ref_name }}") { throw "标签 ${{ github.ref_name }} 必须与 package.json 的 v$version 一致。" }
+      - name: 清理旧版客户端构建产物
+        shell: pwsh
+        run: |
+          Get-ChildItem -LiteralPath release -File |
+            Where-Object { $_.Name -like 'GilFate-Setup-*' -or $_.Name -eq 'latest.yml' } |
+            Remove-Item -Force
       - name: 构建 Windows 安装包
         run: pnpm run dist:win
 
