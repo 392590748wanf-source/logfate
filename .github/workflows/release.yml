@@ -22,8 +22,8 @@ jobs:
           cache: pnpm
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
-      - name: 校验内置数据包
-        run: pnpm data:check
+      - name: 校验客户端脚本、账本回归与内置数据包
+        run: pnpm check
       - name: 校验版本标签
         shell: pwsh
         run: |

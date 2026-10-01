@@ -118,6 +118,10 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .btn.secondary { background: #fff; color: var(--ink); }
 .btn:hover, .btn.secondary:hover, .op-btn:hover, .section-toggle:hover { background: var(--surface-soft); border-color: #aab0b3; }
 .btn:disabled, .op-btn:disabled { background: #fff; color: #b7bbbd; opacity: 1; }
+.filter .btn[data-manager-period].active,
+.filter .btn[data-period].active { border-color: #1769aa; background: #1769aa; color: #fff; font-weight: 700; }
+.filter .btn[data-manager-period]:focus-visible,
+.filter .btn[data-period]:focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
 .op-btn { padding: 4px 6px; font-size: 12px; }
 .op-btn.craft, .op-btn.sale, .op-btn.undo { border-color: var(--line-strong); background: #fff; color: var(--ink); }
 .section-toggle { padding: 2px 7px; color: var(--muted); }
@@ -133,6 +137,7 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .npc-material-table th:nth-child(3), .npc-material-table td:nth-child(3) { width: 118px; max-width: 118px; padding-left: 6px; padding-right: 6px; }
 .ledger tbody tr:hover td { background: #fcfcfc; }
 .ledger td.label { color: var(--ink); }
+.ledger td.label.suite-code { text-align: center; }
 .ledger tr.group-row td { background: #fff; color: var(--ink); border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
 .group-toggle { min-height: 44px; padding: 8px 10px; background: transparent; color: inherit; }
 .ledger tr.detail td.label { color: var(--ink); }
@@ -307,6 +312,26 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 dialog { border: 1px solid #aeb4b7; border-radius: 0; background: #fff; box-shadow: 0 16px 46px #0002; }
 dialog::backdrop, #bundle-detail-dialog::backdrop { background: #00000024; }
 .modal, .detail-modal { background: #fff; }
+#submarine-suite-dialog, #submarine-part-dialog, #submarine-record-dialog { max-height: 90vh; padding: 0; overflow: hidden; }
+#submarine-suite-dialog .modal, #submarine-part-dialog .modal, #submarine-record-dialog .modal { max-height: 90vh; overflow-y: auto; }
+#submarine-suite-dialog.suite-editor-expanded, #submarine-part-dialog { width: min(1000px, calc(100vw - 32px)); max-width: none; }
+#submarine-suite-dialog.suite-editor-expanded .price-form, #submarine-part-dialog .price-form { min-width: 0; }
+#submarine-record-dialog { width: min(600px, calc(100vw - 32px)); max-width: none; }
+#submarine-record-dialog .price-form { min-width: 0; }
+.suite-editor-tabs { display: flex; gap: 8px; margin: 14px 0 18px; }
+.suite-editor-tabs[hidden] { display: none; }
+.suite-editor-tabs .btn.active { background: #1769aa; border-color: #1769aa; color: #fff; font-weight: 700; }
+.suite-editor-tabs .btn:focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
+.suite-history-table .ledger { min-width: 0; width: 100%; }
+.suite-history-table .ledger td, .suite-history-table .ledger th { white-space: normal; vertical-align: top; }
+.suite-history-table .ledger td:first-child { width: 32%; }
+.suite-history-table small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+.suite-history-table .btn { margin-bottom: 4px; white-space: nowrap; }
+.suite-readonly-reason { display: block; max-width: 230px; color: var(--muted); font-size: 12px; }
+.suite-delete-area { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line-strong); }
+.suite-delete-area[hidden] { display: none; }
+.btn.danger-button { color: var(--negative); border-color: #d7aba6; }
+.suite-record-total { padding: 12px; background: #f3f8f9; font-weight: 700; }
 .detail-modal { padding: 22px; }
 .detail-column { border: 1px solid var(--line-strong); border-radius: 0; }
 .detail-column h3 { border-bottom: 1px solid var(--line); background: #fff; color: var(--ink); }
