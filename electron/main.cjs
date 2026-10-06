@@ -28,6 +28,10 @@ const BACKUP_KEYS = new Set([
   'ff14-submarine-operations',
   'ff14-submarine-npc-materials',
   'ff14-submarine-suites',
+  'ff14-leve-plans',
+  'ff14-leve-sales-ledger',
+  'ff14-leve-sale-price-presets',
+  'ff14-craft-scrip-manual-exchanges',
   'ff14-trade-inventory',
   'ff14-trade-source-cache',
   'ff14-garland-venture-core-cache',
@@ -35,6 +39,9 @@ const BACKUP_KEYS = new Set([
 ]);
 
 let mainWindow;
+let downloadedClientUpdate = null;
+let clientUpdateInstalling = false;
+let clientUpdateInstallError = null;
 
 const bundledDataManifestPath = () => path.join(__dirname, '..', 'data', 'manifest.json');
 const dataCacheDirectory = () => path.join(app.getPath('userData'), 'data-cache');
@@ -136,7 +143,28 @@ const writeDataCache = async (manifest, raw) => {
 };
 
 const sendUpdateStatus = status => {
-  BrowserWindow.getAllWindows().forEach(window => window.webContents.send('updater:status', status));
+  BrowserWindow.getAllWindows().forEach(window => window.webContents.send('updater:status', {
+    ...status,
+    readyToInstall: Boolean(downloadedClientUpdate),
+    installing: clientUpdateInstalling
+  }));
+};
+
+const downloadedClientStatus = () => ({
+  state: clientUpdateInstalling ? 'installing' : 'downloaded',
+  version: downloadedClientUpdate?.version,
+  message: clientUpdateInstalling
+    ? '正在安装更新，客户端将关闭，安装完成后自动打开。'
+    : `新版本 ${downloadedClientUpdate?.version} 已下载，可以确认安装。`
+});
+
+const checkClientUpdates = async () => {
+  if (downloadedClientUpdate || clientUpdateInstalling) {
+    sendUpdateStatus(downloadedClientStatus());
+    return;
+  }
+  applyOfficialUpdateFeed();
+  await autoUpdater.checkForUpdates();
 };
 
 const normalizeBackup = backup => {
@@ -189,7 +217,8 @@ const configureAutoUpdater = async () => {
   if (!app.isPackaged) return;
   applyOfficialUpdateFeed();
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // “稍后”及普通退出均不安装，只接受用户明确确认的安装请求。
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking', message: '正在检查客户端更新…' }));
   autoUpdater.on('update-available', info => {
     sendUpdateStatus({ state: 'available', version: info.version, message: `发现新版本 ${info.version}，正在下载…` });
@@ -197,13 +226,19 @@ const configureAutoUpdater = async () => {
   autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'latest', message: '当前已是最新版本。' }));
   autoUpdater.on('download-progress', progress => sendUpdateStatus({ state: 'downloading', percent: Math.round(progress.percent || 0), message: `正在下载更新：${Math.round(progress.percent || 0)}%` }));
   autoUpdater.on('update-downloaded', info => {
-    sendUpdateStatus({ state: 'downloaded', version: info.version, message: `新版本 ${info.version} 已下载，可重启安装。` });
+    downloadedClientUpdate = info;
+    sendUpdateStatus(downloadedClientStatus());
   });
   autoUpdater.on('error', error => {
-    sendUpdateStatus({ state: 'error', message: `更新检查失败：${error.message}` });
+    const installing = clientUpdateInstalling;
+    if (installing) {
+      clientUpdateInstallError = error.message || '无法启动安装程序。';
+      clientUpdateInstalling = false;
+    }
+    sendUpdateStatus({ state: 'error', message: `${installing ? '更新安装启动失败' : '客户端更新失败'}：${error.message}` });
   });
-  setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 2500);
-  setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
+  setTimeout(() => checkClientUpdates().catch(() => {}), 2500);
+  setInterval(() => checkClientUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 };
 
 ipcMain.handle('backup:export', async (_event, rawBackup) => {
@@ -236,16 +271,34 @@ ipcMain.handle('backup:import', async () => {
 ipcMain.handle('updater:check', async () => {
   if (!app.isPackaged) return { available: false, message: '开发模式下不检查更新。' };
   try {
-    applyOfficialUpdateFeed();
-    await autoUpdater.checkForUpdates();
+    await checkClientUpdates();
     return { available: true };
   } catch (error) {
     return { available: false, message: error.message || '更新检查失败。' };
   }
 });
 
-ipcMain.handle('updater:restart', () => {
-  if (app.isPackaged) autoUpdater.quitAndInstall();
+ipcMain.handle('updater:restart', async event => {
+  if (!app.isPackaged) return { started: false, message: '开发模式下不安装更新。' };
+  if (clientUpdateInstalling) return { started: false, installing: true, message: '正在启动安装，请勿重复操作。' };
+  if (!downloadedClientUpdate) return { started: false, message: '更新尚未下载完成，请先检查并下载更新。' };
+  clientUpdateInstalling = true;
+  clientUpdateInstallError = null;
+  sendUpdateStatus(downloadedClientStatus());
+  try {
+    // 前端已同步保存账目；安装前将该窗口的 localStorage 写入刷新到磁盘。
+    event.sender.session.flushStorageData();
+    autoUpdater.quitAndInstall(true, true);
+    // quitAndInstall 返回 void；通过 error 事件捕获其可检测到的启动失败。
+    await Promise.resolve();
+    if (clientUpdateInstallError) return { started: false, message: `更新安装启动失败：${clientUpdateInstallError}` };
+    return { started: true, message: '已发起安装，安装完成后会自动打开新版客户端。' };
+  } catch (error) {
+    clientUpdateInstalling = false;
+    const message = `更新安装启动失败：${error.message || '无法启动安装程序。'}`;
+    sendUpdateStatus({ state: 'error', message });
+    return { started: false, message };
+  }
 });
 
 ipcMain.handle('data:status', async () => {

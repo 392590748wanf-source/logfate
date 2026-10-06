@@ -1435,7 +1435,8 @@ window.addEventListener('load', async () => {
     <dialog id="submarine-record-dialog"><form id="submarine-record-form" class="modal price-form" novalidate><div class="header"><h2 id="submarine-record-title">编辑历史记录</h2><button type="button" class="btn secondary" data-close="submarine-record-dialog">关闭</button></div><p class="sub">同种部件共用库存；保存后同步重算相关销售成本和利润。</p><div id="submarine-record-parts" class="sub"></div><label>记录日期<input id="submarine-record-date" type="date" required></label><label id="submarine-record-quantity-label">套数<input id="submarine-record-quantity" type="number" min="1" step="1" required></label><div id="submarine-record-costs"></div><p id="submarine-record-total" class="suite-record-total" aria-live="polite"></p><p id="submarine-record-error" role="alert" class="status" hidden></p><div class="modal-actions"><button type="button" id="submarine-record-delete" class="btn secondary danger-button" hidden>删除销售记录</button><button type="button" class="btn secondary" data-close="submarine-record-dialog">取消</button><button class="btn">保存记录</button></div></form></dialog>
     <dialog id="npc-material-dialog"><div class="modal price-form"><div class="header"><div><h2>管理 NPC 购买材料</h2><div class="sub">仅能添加潜水艇推荐材料名录中的材料；加入后会从其他潜水艇分类中排除。</div></div><button class="btn secondary" data-close="npc-material-dialog">关闭</button></div><div id="npc-material-list"></div><hr style="border:0;border-top:1px solid #d6e1e4;margin:18px 0"><h3>添加 NPC 购买材料</h3><label>搜索潜水艇推荐材料<input id="npc-material-search" placeholder="输入名称或物品 ID"></label><div id="npc-material-results"></div><form id="npc-material-form"><input id="npc-material-id" type="hidden"><input id="npc-material-name" type="hidden"><label>NPC 采购价<input id="npc-material-price" type="number" min="0" required></label><label>购买来源<input id="npc-material-source" placeholder="例如 NPC 名称或商店" required></label><div class="modal-actions"><button class="btn">加入 NPC 分类</button></div></form></div></dialog>
     <dialog id="report-reconcile-dialog"><form id="report-reconcile-form" class="modal price-form"><h2>补全销售记录来源</h2><div id="report-reconcile-summary" class="card" style="box-shadow:none;background:#f3f8f9"></div><label>销售日期<input id="report-reconcile-date" type="date" required></label><label>记录名称<input id="report-reconcile-item" required></label><label>销售额<input id="report-reconcile-amount" type="number" min="0" step="1" required></label><label>销售成本<input id="report-reconcile-cost" type="number" min="0" step="1" required></label><label>利润<input id="report-reconcile-profit" type="number" step="1" required></label><label>归属类型<select id="report-reconcile-kind"><option value="equipment">装备销售</option><option value="part">潜水艇单件</option><option value="suite">潜水艇整套</option></select></label><label>对应项目<select id="report-reconcile-target"></select></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="report-reconcile-dialog">取消</button><button class="btn">保存归属</button></div></form></dialog>
-    <dialog id="backup-dialog"><div class="modal price-form"><div class="header"><div><h2>数据与更新</h2><div id="backup-status" class="sub">导出可保存本机账本；导入会覆盖当前数据。</div></div><button class="btn secondary" data-close="backup-dialog">关闭</button></div><div class="backup-actions"><button id="backup-export" class="btn secondary" type="button">导出账本 JSON</button><button id="backup-import" class="btn secondary" type="button">导入账本 JSON</button></div><div id="desktop-update-panels" class="update-panels" hidden><section class="update-panel"><div><h3>资料版本</h3><p id="data-update-current" class="sub">正在读取本机资料版本…</p><p id="data-update-latest" class="sub">手动检查后显示最新版本。</p></div><div class="backup-actions"><button id="data-update-check" class="btn secondary" type="button">重新检测</button><button id="data-update-apply" class="btn" type="button" hidden>下载并应用资料</button></div></section><section class="update-panel"><div><h3>客户端版本</h3><p id="desktop-update-current" class="sub">正在读取客户端版本…</p><p id="desktop-update-latest" class="sub">手动检查后显示最新版本。</p></div><div class="backup-actions"><button id="desktop-update-check" class="btn secondary" type="button">重新检测</button><button id="desktop-update-restart" class="btn" type="button" hidden>重启并安装更新</button></div></section></div><input id="backup-import-input" type="file" accept="application/json,.json" hidden></div></dialog>
+    <dialog id="backup-dialog"><div class="modal price-form"><div class="header"><div><h2>数据与更新</h2><div id="backup-status" class="sub">导出可保存本机账本；导入会覆盖当前数据。</div></div><button class="btn secondary" data-close="backup-dialog">关闭</button></div><div class="backup-actions"><button id="backup-export" class="btn secondary" type="button">导出账本 JSON</button><button id="backup-import" class="btn secondary" type="button">导入账本 JSON</button></div><div id="desktop-update-panels" class="update-panels" hidden><section class="update-panel"><div><h3>资料版本</h3><p id="data-update-current" class="sub">正在读取本机资料版本…</p><p id="data-update-latest" class="sub">手动检查后显示最新版本。</p></div><div class="backup-actions"><button id="data-update-check" class="btn secondary" type="button">重新检测</button><button id="data-update-apply" class="btn" type="button" hidden>下载并应用资料</button></div></section><section class="update-panel"><div><h3>客户端版本</h3><p id="desktop-update-current" class="sub">正在读取客户端版本…</p><p id="desktop-update-latest" class="sub">手动检查后显示最新版本。</p></div><div class="backup-actions"><button id="desktop-update-check" class="btn secondary" type="button">重新检测</button><button id="desktop-update-restart" class="btn" type="button" hidden>确认安装更新</button></div></section></div><input id="backup-import-input" type="file" accept="application/json,.json" hidden></div></dialog>
+    <dialog id="desktop-install-dialog"><div class="modal price-form"><h2>确认安装客户端更新</h2><p id="desktop-install-version" class="sub"></p><p>确认后客户端将关闭，在后台安装更新，安装完成后自动打开新版。无需重启电脑；系统如需权限确认，请按提示允许。</p><p id="desktop-install-status" class="sub" role="status">选择“稍后”可继续使用，普通退出不会安装更新。</p><div class="modal-actions"><button id="desktop-install-later" class="btn secondary" type="button">稍后</button><button id="desktop-install-confirm" class="btn" type="button">确认安装</button></div></div></dialog>
   `;
 
   const reportFieldsValid = row => Boolean(row?.date && row?.item && Number.isFinite(Number(row.amount)) && Number.isFinite(Number(row.cost)) && Number.isFinite(Number(row.profit)));
@@ -4723,13 +4724,63 @@ window.addEventListener('load', async () => {
     await refreshDataStatus();
     if (result.updated && confirm('资料已下载，立即重载以使用新资料吗？')) location.reload();
   };
-  document.querySelector('#desktop-update-restart').onclick = () => desktopBridge?.restartToUpdate();
+  const desktopInstallDialog = document.querySelector('#desktop-install-dialog');
+  const desktopInstallStatus = document.querySelector('#desktop-install-status');
+  const desktopInstallConfirm = document.querySelector('#desktop-install-confirm');
+  const desktopInstallLater = document.querySelector('#desktop-install-later');
+  const desktopUpdateRestart = document.querySelector('#desktop-update-restart');
+  const desktopUpdateCheck = document.querySelector('#desktop-update-check');
+  let desktopInstallReady = false;
+  let desktopInstallBusy = false;
+  let desktopInstallVersion = '';
+  let desktopInstallPromptedVersion = null;
+  const setDesktopInstallBusy = busy => {
+    desktopInstallBusy = busy;
+    desktopInstallConfirm.disabled = busy || !desktopInstallReady;
+    desktopInstallLater.disabled = busy;
+    desktopUpdateRestart.disabled = busy;
+    desktopUpdateCheck.disabled = busy;
+    desktopInstallConfirm.textContent = busy ? '正在安装…' : '确认安装';
+    desktopUpdateRestart.textContent = busy ? '正在安装…' : '确认安装更新';
+  };
+  const openDesktopInstallConfirmation = () => {
+    if (!desktopBridge || !desktopInstallReady || desktopInstallBusy) return;
+    document.querySelector('#desktop-install-version').textContent = desktopInstallVersion ? `新版本：${desktopInstallVersion}` : '新版本已下载完成。';
+    desktopInstallStatus.textContent = '选择“稍后”可继续使用，普通退出不会安装更新。';
+    if (!desktopInstallDialog.open) desktopInstallDialog.showModal();
+  };
+  desktopUpdateRestart.onclick = openDesktopInstallConfirmation;
+  desktopInstallLater.onclick = () => { if (!desktopInstallBusy) desktopInstallDialog.close(); };
+  desktopInstallDialog.addEventListener('cancel', event => { if (desktopInstallBusy) event.preventDefault(); });
+  desktopInstallConfirm.onclick = async () => {
+    if (!desktopBridge || !desktopInstallReady || desktopInstallBusy) return;
+    setDesktopInstallBusy(true);
+    desktopInstallStatus.textContent = '正在保存账目…';
+    try {
+      try { save(); } catch (error) { throw new Error(`账目保存失败，未启动安装：${error.message || '无法写入本地存储。'}`); }
+      desktopInstallStatus.textContent = '正在启动安装，客户端将关闭，安装完成后自动打开。';
+      const result = await desktopBridge.restartToUpdate();
+      if (!result?.started && !result?.installing) throw new Error(result?.message || '无法启动安装，请稍后重试。');
+      if (!desktopInstallBusy) return; // 已收到异步失败状态时，不用较晚的 IPC 成功响应覆盖错误。
+      // 安装启动不是安装完成；真正的退出、安装及重新打开由 Electron 更新器负责。
+      desktopInstallStatus.textContent = result.message || '正在安装更新…';
+    } catch (error) {
+      setDesktopInstallBusy(false);
+      desktopInstallStatus.textContent = error.message || '无法启动安装，请稍后重试。';
+      desktopUpdateLatest.textContent = desktopInstallStatus.textContent;
+    }
+  };
   if (desktopBridge) desktopBridge.onUpdateStatus(status => {
     desktopUpdateLatest.textContent = status.message || '客户端更新状态已更新。';
-    setUpdateSourceBusy(status.state === 'available' || status.state === 'downloading');
-    const restart = document.querySelector('#desktop-update-restart');
-    restart.hidden = status.state !== 'downloaded';
-    if (status.state === 'downloaded' && confirm(`${status.message}\n现在重启并安装吗？`)) desktopBridge.restartToUpdate();
+    desktopInstallReady = status.readyToInstall ?? (status.state === 'downloaded' || desktopInstallReady);
+    if (status.version) desktopInstallVersion = status.version;
+    desktopUpdateRestart.hidden = !desktopInstallReady;
+    setDesktopInstallBusy(Boolean(status.installing || status.state === 'installing'));
+    if (status.state === 'installing' || (status.state === 'error' && desktopInstallDialog.open)) desktopInstallStatus.textContent = desktopUpdateLatest.textContent;
+    if (status.state === 'downloaded' && desktopInstallPromptedVersion !== desktopInstallVersion) {
+      desktopInstallPromptedVersion = desktopInstallVersion;
+      openDesktopInstallConfirmation();
+    }
   });
   document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => document.querySelector('#' + button.dataset.close).close());
   document.querySelector('#craft-scrip-manual-form').onsubmit = saveCraftScripManualDialog;
@@ -4743,7 +4794,7 @@ window.addEventListener('load', async () => {
     dialog.addEventListener('pointerdown', event => { beganOnBackdrop = event.target === dialog; });
     dialog.addEventListener('pointercancel', () => { beganOnBackdrop = false; });
     dialog.addEventListener('click', event => {
-      if (beganOnBackdrop && event.target === dialog) dialog.close();
+      if (beganOnBackdrop && event.target === dialog && !(dialog === desktopInstallDialog && desktopInstallBusy)) dialog.close();
       beganOnBackdrop = false;
     });
   });

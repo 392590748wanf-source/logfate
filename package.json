@@ -1,7 +1,7 @@
 {
   "name": "gilfate",
   "productName": "GilFate",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "packageManager": "pnpm@11.19.0",
   "description": "FF14 装备与潜水艇成本、库存及销售利润账本",
   "author": "392590748wanf-source",
@@ -9,7 +9,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "check": "node --check fantasy.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
+    "check": "node --check fantasy.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node tools/check-client-updater.cjs && node tools/check-client-backup.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
     "data:build": "node tools/build-data-bundle.mjs",
     "data:check": "node tools/build-data-bundle.mjs --check",
     "leves:verify": "node tools/sync-levequest-verification.mjs",
