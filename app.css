@@ -61,6 +61,8 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-ledger .item-icon { width: 18px; height: 18px; flex-basis: 18px; }
 .trade-context-target { display: inline-flex; align-items: center; min-height: 24px; border-radius: 2px; cursor: context-menu; }
 .trade-context-target:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.trade-name-edit { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.trade-name-edit:hover { text-decoration: underline; text-underline-offset: 2px; }
 .trade-context-menu { position: fixed; z-index: 120; display: grid; min-width: 142px; padding: 4px; border: 1px solid var(--line-strong); background: #fff; box-shadow: 0 8px 26px #00000020; }
 .trade-context-menu[hidden] { display: none; }
 .trade-context-menu button { padding: 7px 9px; border: 0; background: transparent; color: var(--ink); font: 13px "Microsoft YaHei", sans-serif; text-align: left; cursor: pointer; }
@@ -68,14 +70,14 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-context-menu button.danger { color: var(--negative); }
 .trade-empty { margin-top: 16px; }
 .trade-market-reference { border: 0; padding: 0; background: transparent; color: var(--positive); cursor: help; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
-.trade-market-popover { position: fixed; z-index: 100; max-height: min(420px, calc(100vh - 24px)); padding: 11px 12px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); box-shadow: 0 9px 28px #0000001c; overflow: auto; text-align: left; white-space: normal; }
+.trade-market-popover { position: fixed; z-index: 100; box-sizing: border-box; width: max-content; max-width: min(420px, calc(100vw - 24px)); max-height: min(420px, calc(100vh - 24px)); padding: 11px 12px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); box-shadow: 0 9px 28px #0000001c; overflow: auto; text-align: left; white-space: normal; }
 .trade-market-popover[hidden] { display: none; }
 .trade-market-popover b, .trade-market-popover em { position: relative; display: block; }
 .trade-market-popover b { margin-bottom: 2px; font-size: 13px; }
 .trade-market-popover em { margin-bottom: 8px; color: var(--muted); font-size: 11px; font-style: normal; }
 .trade-market-popover p { position: relative; margin: 0; color: var(--muted); font-size: 12px; }
 .trade-market-listings { position: relative; display: grid; gap: 4px; }
-.trade-market-listings div { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+.trade-market-listings div { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
 .trade-market-listings small { color: var(--muted); white-space: nowrap; }
 .trade-search-results { display: grid; gap: 5px; margin: 8px 0 12px; }
 .trade-search-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 7px 9px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: 13px "Microsoft YaHei", sans-serif; cursor: pointer; text-align: left; }
