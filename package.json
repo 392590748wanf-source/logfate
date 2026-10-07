@@ -1,15 +1,17 @@
 {
   "name": "gilfate",
   "productName": "GilFate",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "packageManager": "pnpm@11.19.0",
   "description": "FF14 装备与潜水艇成本、库存及销售利润账本",
   "author": "392590748wanf-source",
   "main": "electron/main.cjs",
   "private": true,
   "scripts": {
+    "prestart": "node tools/prepare-ocr-assets.mjs",
     "start": "electron .",
-    "check": "node --check fantasy.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node tools/check-client-updater.cjs && node tools/check-client-backup.cjs && node tools/check-trade-inventory.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
+    "precheck": "node tools/prepare-ocr-assets.mjs",
+    "check": "node --check fantasy.js && node --check purchase-ocr.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/capture-preload.cjs && node --check electron/capture-overlay.js && node --check electron/capture-geometry.cjs && node tools/check-purchase-ocr.cjs && node tools/check-purchase-capture.cjs && node tools/check-purchase-cost-priority.cjs && node tools/check-client-updater.cjs && node tools/check-client-backup.cjs && node tools/check-data-cache.cjs && node tools/check-market-refresh-memory.cjs && node tools/check-trade-inventory.cjs && node tools/check-craft-scrip-icons.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
     "data:build": "node tools/build-data-bundle.mjs",
     "data:check": "node tools/build-data-bundle.mjs --check",
     "leves:verify": "node tools/sync-levequest-verification.mjs",
@@ -18,13 +20,17 @@
     "leves:icons": "node tools/sync-levequest-icons.mjs",
     "icons:sync": "node tools/sync-garland-icons.mjs",
     "icon:build": "powershell.exe -ExecutionPolicy Bypass -File tools/generate-app-icon.ps1",
+    "preweb:build": "node tools/prepare-ocr-assets.mjs",
     "web:build": "node tools/build-web-deploy.mjs",
+    "predist:win": "node tools/prepare-ocr-assets.mjs",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "release": "pnpm run dist:win"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
     "electron": "^37.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "tesseract.js": "6.0.1"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
@@ -41,6 +47,7 @@
       "!release{,/**}",
       "!release-1.1.9{,/**}",
       "!dist-web{,/**}",
+      "!dist{,/**}",
       "!.tmp-docx-read{,/**}",
       "!*.traineddata",
       "!ff14-fantasy-backup*.json",

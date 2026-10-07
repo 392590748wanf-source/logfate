@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('ff14Desktop', {
   loadDataBundle: () => ipcRenderer.invoke('data:load'),
   checkDataUpdates: () => ipcRenderer.invoke('data:check'),
   applyDataUpdate: () => ipcRenderer.invoke('data:apply'),
+  getCaptureDisplays: () => ipcRenderer.invoke('purchase:capture-displays'),
+  capturePurchaseArea: options => ipcRenderer.invoke('purchase:capture-area', options),
   onUpdateStatus: callback => {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('updater:status', listener);

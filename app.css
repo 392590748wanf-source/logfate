@@ -49,8 +49,9 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-category-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
 .trade-category-section { min-width: 0; margin: 0; }
 .trade-category-section h2 { margin: 0; padding: 5px 6px; border: 1px solid var(--line-strong); border-bottom: 0; background: var(--surface-soft); font-size: 14px; }
-.trade-category-section .table-wrap { margin-top: 0; overflow: hidden; }
-.trade-ledger { width: 100%; min-width: 0; table-layout: fixed; font-size: inherit; }
+.trade-category-section .table-wrap { margin-top: 0; overflow-x: auto; overflow-y: hidden; }
+/* 覆盖通用 .ledger 的最小宽度，避免双栏库存表把右侧列裁掉。 */
+.ledger.trade-ledger { width: 100%; min-width: 0; table-layout: fixed; font-size: inherit; }
 .trade-ledger th, .trade-ledger td { padding: 4px 2px; white-space: normal; overflow-wrap: anywhere; word-break: normal; line-height: 1.35; }
 .trade-ledger .trade-col-material { width: 27%; }
 .trade-ledger .trade-col-unit { width: 15%; }
@@ -314,6 +315,9 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 dialog { border: 1px solid #aeb4b7; border-radius: 0; background: #fff; box-shadow: 0 16px 46px #0002; }
 dialog::backdrop, #bundle-detail-dialog::backdrop { background: #00000024; }
 .modal, .detail-modal { background: #fff; }
+/* 大型详情共用弹窗留出可点击的遮罩；长内容仍在弹窗内部滚动。 */
+dialog#bundle-detail-dialog { width: min(1200px, 88vw); min-width: min(330px, calc(100vw - 32px)); max-height: 84vh; }
+#bundle-detail-dialog > .detail-modal { max-height: 84vh; }
 #submarine-suite-dialog, #submarine-part-dialog, #submarine-record-dialog { max-height: 90vh; padding: 0; overflow: hidden; }
 #submarine-suite-dialog .modal, #submarine-part-dialog .modal, #submarine-record-dialog .modal { max-height: 90vh; overflow-y: auto; }
 #submarine-suite-dialog.suite-editor-expanded, #submarine-part-dialog { width: min(1000px, calc(100vw - 32px)); max-width: none; }
@@ -329,6 +333,29 @@ dialog::backdrop, #bundle-detail-dialog::backdrop { background: #00000024; }
 .suite-history-table .ledger td:first-child { width: 32%; }
 .suite-history-table small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
 .suite-history-table .btn { margin-bottom: 4px; white-space: nowrap; }
+.purchase-image-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
+.purchase-image-actions[hidden] { display: none; }
+#purchase-image-file[hidden] { display: none; }
+.purchase-image-actions [hidden] { display: none !important; }
+#purchase-capture-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+#purchase-capture-controls label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 12px; }
+#purchase-capture-controls input[type="checkbox"] { width: auto; margin: 0; }
+#purchase-capture-controls select { width: auto; max-width: 190px; margin: 0; padding: 5px; }
+#purchase-ocr-dialog { width: min(1100px, 92vw); max-width: none; max-height: 88vh; padding: 0; overflow: hidden; }
+.purchase-ocr-modal { min-width: 0; max-height: 88vh; overflow-y: auto; }
+.purchase-ocr-modal .header { align-items: start; }
+.purchase-ocr-preview { display: grid; place-items: center; max-height: 220px; margin: 12px 0; padding: 8px; overflow: auto; border: 1px solid var(--line); background: #f6f7f8; }
+.purchase-ocr-preview img { display: block; max-width: 100%; max-height: 200px; object-fit: contain; }
+.purchase-ocr-table-wrap { margin-top: 10px; }
+.purchase-ocr-table { width: 100%; min-width: 760px; }
+.purchase-ocr-table input:not([type="checkbox"]) { width: 100%; min-width: 75px; padding: 5px; }
+.purchase-ocr-table input[type="checkbox"] { width: auto; margin: 0; }
+.purchase-ocr-table input[type="date"] { min-width: 135px; }
+.purchase-ocr-table input[type="time"] { min-width: 100px; }
+.purchase-ocr-table td { white-space: normal; }
+.purchase-ocr-table td:last-child { min-width: 130px; font-size: 12px; }
+.purchase-ocr-table tr.needs-review td:last-child { color: var(--warning); }
+.purchase-ocr-table tr.has-error td { background: #fff3f2; }
 .suite-readonly-reason { display: block; max-width: 230px; color: var(--muted); font-size: 12px; }
 .suite-delete-area { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line-strong); }
 .suite-delete-area[hidden] { display: none; }
@@ -372,6 +399,10 @@ dialog::backdrop, #bundle-detail-dialog::backdrop { background: #00000024; }
 .profit-summary-header h2 { flex: 1; margin: 0; border-bottom: 0; }
 .equipment-summary-tier { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: var(--muted); font-size: 12px; }
 .equipment-summary-tier select { min-width: 86px; min-height: 30px; padding: 4px 24px 4px 7px; border: 1px solid var(--line-strong); border-radius: 2px; background: #fff; color: var(--ink); font: 700 13px "Microsoft YaHei", sans-serif; }
+
+@media (max-width: 1280px) {
+  .trade-category-sections { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 880px) {
   .app-topbar { gap: 12px; padding: 0 16px; overflow-x: auto; }

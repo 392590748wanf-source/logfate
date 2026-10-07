@@ -62,6 +62,7 @@ const mainContext = {
   require: name => name === 'electron' ? electron
     : name === 'electron-updater' ? { autoUpdater: {} }
     : name === 'node:fs/promises' ? memoryFs
+    : name === './capture-geometry.cjs' ? require(path.join(root, 'electron', 'capture-geometry.cjs'))
     : require(name),
   __dirname: path.join(root, 'electron'),
   process: { platform: 'win32' }

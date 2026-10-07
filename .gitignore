@@ -17,3 +17,4 @@ dist-web/
 .DS_Store
 Thumbs.db
 tools/.cache/
+assets/ocr/

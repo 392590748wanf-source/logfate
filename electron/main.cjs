@@ -1,8 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, desktopCapturer, dialog, ipcMain, screen, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
+const { createReadStream } = require('node:fs');
+const { selectionToCrop } = require('./capture-geometry.cjs');
 
 const APP_ICON = path.join(__dirname, '..', 'build', 'icon.ico');
 const BACKUP_FORMAT = 'ff14-fantasy-backup';
@@ -42,6 +44,7 @@ let mainWindow;
 let downloadedClientUpdate = null;
 let clientUpdateInstalling = false;
 let clientUpdateInstallError = null;
+let purchaseCaptureActive = false;
 
 const bundledDataManifestPath = () => path.join(__dirname, '..', 'data', 'manifest.json');
 const dataCacheDirectory = () => path.join(app.getPath('userData'), 'data-cache');
@@ -51,6 +54,11 @@ const dataCachePaths = () => ({
   bundle: path.join(dataCacheDirectory(), 'data-bundle.json')
 });
 const sha256 = value => createHash('sha256').update(value).digest('hex');
+const sha256File = async file => {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  return hash.digest('hex');
+};
 const sameVersion = (left, right) => String(left || '') === String(right || '');
 const applyOfficialUpdateFeed = () => autoUpdater.setFeedURL({ provider: 'generic', url: GITHUB_RELEASE_DOWNLOAD_URL });
 
@@ -77,20 +85,32 @@ const validateDataBundle = (raw, manifest) => {
 
 const readJsonFile = async file => JSON.parse(await fs.readFile(file, 'utf8'));
 const readBundledDataManifest = async () => validateDataManifest(await readJsonFile(bundledDataManifestPath()));
-const readCachedData = async () => {
+let validatedCacheFingerprint = null;
+const readCachedData = async ({ bundled = null, includeBundle = false } = {}) => {
   const paths = dataCachePaths();
   try {
-    const [manifest, raw] = await Promise.all([readJsonFile(paths.manifest), fs.readFile(paths.bundle, 'utf8')]);
-    validateDataManifest(manifest);
+    const manifest = validateDataManifest(await readJsonFile(paths.manifest));
+    // 相同资料已经随客户端内置；无需再次解析并通过 IPC 复制到渲染进程。
+    if (bundled && sameVersion(manifest.version, bundled.version) &&
+        String(manifest.bundle.sha256).toLowerCase() === String(bundled.bundle.sha256).toLowerCase()) return null;
+    const fingerprint = `${manifest.version}:${String(manifest.bundle.sha256).toLowerCase()}`;
+    if (!includeBundle && validatedCacheFingerprint === fingerprint) {
+      // 首次已核验结构；后续状态读取仍校验文件内容，但不重复解析对象。
+      if (await sha256File(paths.bundle) !== String(manifest.bundle.sha256).toLowerCase()) throw new Error('缓存数据校验失败。');
+      return { manifest };
+    }
+    const raw = await fs.readFile(paths.bundle, 'utf8');
     if (sha256(raw) !== String(manifest.bundle.sha256).toLowerCase()) throw new Error('缓存数据校验失败。');
-    return { manifest, bundle: validateDataBundle(raw, manifest) };
+    const bundle = validateDataBundle(raw, manifest);
+    validatedCacheFingerprint = fingerprint;
+    return { manifest, bundle: includeBundle ? bundle : null };
   } catch {
     return null;
   }
 };
 const activeDataStatus = async () => {
   const bundled = await readBundledDataManifest();
-  const cached = await readCachedData();
+  const cached = await readCachedData({ bundled });
   return { source: cached ? 'cache' : 'bundled', current: cached?.manifest || bundled, bundled };
 };
 const fetchDataManifest = async () => {
@@ -117,7 +137,8 @@ const fetchDataBundle = async (manifest, manifestUrl) => {
   if (!response.ok) throw new Error(`数据包下载失败（${response.status}）。`);
   const raw = Buffer.from(await response.arrayBuffer()).toString('utf8');
   if (sha256(raw) !== String(manifest.bundle.sha256).toLowerCase()) throw new Error('数据包校验失败，文件未被应用。');
-  return { raw, bundle: validateDataBundle(raw, manifest) };
+  validateDataBundle(raw, manifest);
+  return raw;
 };
 const writeDataCache = async (manifest, raw) => {
   const paths = dataCachePaths();
@@ -268,6 +289,120 @@ ipcMain.handle('backup:import', async () => {
   }
 });
 
+const verifyMainSender = event => {
+  if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+    throw new Error('截图请求来源无效。');
+  }
+};
+
+ipcMain.handle('purchase:capture-displays', event => {
+  verifyMainSender(event);
+  const current = screen.getDisplayMatching(mainWindow.getBounds());
+  return {
+    currentId: String(current.id),
+    displays: screen.getAllDisplays().map((display, index) => ({
+      id: String(display.id),
+      label: display.label || `显示器 ${index + 1}`,
+      width: display.bounds.width,
+      height: display.bounds.height
+    }))
+  };
+});
+
+ipcMain.handle('purchase:capture-area', async (event, options = {}) => {
+  verifyMainSender(event);
+  if (purchaseCaptureActive) throw new Error('已有截图正在进行。');
+  const display = screen.getAllDisplays().find(item => String(item.id) === String(options.displayId));
+  if (!display) throw new Error('所选显示器不可用，请重新选择。');
+  const hideWindow = options.hideWindow === true;
+  const wasVisible = mainWindow.isVisible();
+  let overlay;
+  purchaseCaptureActive = true;
+  try {
+    if (hideWindow && wasVisible) {
+      mainWindow.hide();
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: Math.min(7680, Math.ceil(display.bounds.width * display.scaleFactor)),
+        height: Math.min(4320, Math.ceil(display.bounds.height * display.scaleFactor))
+      }
+    });
+    const source = sources.find(item => item.display_id === String(display.id)) || (sources.length === 1 ? sources[0] : null);
+    if (!source || source.thumbnail.isEmpty()) throw new Error('无法读取所选显示器画面；可改用选择图片。');
+    const image = source.thumbnail;
+    const size = image.getSize();
+    if (size.width < 1 || size.height < 1 || size.width * size.height > 32_000_000) throw new Error('截图尺寸超出支持范围。');
+    overlay = new BrowserWindow({
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height,
+      show: false,
+      frame: false,
+      resizable: false,
+      movable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'capture-preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webSecurity: true
+      }
+    });
+    overlay.setAlwaysOnTop(true, 'screen-saver');
+    overlay.removeMenu();
+    overlay.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    const captureWindow = overlay;
+    const result = new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (value, error = null) => {
+        if (settled) return;
+        settled = true;
+        ipcMain.removeListener('purchase:capture-selection', onSelection);
+        if (error) reject(error);
+        else resolve(value);
+      };
+      const onSelection = (selectionEvent, selection) => {
+        if (selectionEvent.sender !== captureWindow.webContents) return;
+        if (!selection) return finish({ canceled: true });
+        const crop = selectionToCrop(selection, size);
+        if (!crop) return finish({ canceled: true });
+        try {
+          if (crop.width * crop.height > 20_000_000) throw new Error('框选区域过大，请缩小范围。');
+          const png = image.crop(crop).toPNG();
+          if (png.length > 12 * 1024 * 1024) throw new Error('截图超过 12 MB，请缩小范围。');
+          finish({ canceled: false, dataUrl: `data:image/png;base64,${png.toString('base64')}` });
+        } catch (error) {
+          finish(null, new Error(`无法裁剪截图：${error.message}`));
+        }
+      };
+      ipcMain.on('purchase:capture-selection', onSelection);
+      captureWindow.on('closed', () => finish({ canceled: true }));
+      captureWindow.webContents.on('did-fail-load', (_event, _code, description) => {
+        finish(null, new Error(description || '截图框选窗口加载失败。'));
+      });
+      captureWindow.loadFile(path.join(__dirname, 'capture-overlay.html')).then(() => {
+        if (settled) return;
+        captureWindow.webContents.send('purchase:capture-image', image.toDataURL());
+        captureWindow.show();
+      }).catch(error => finish(null, error));
+    });
+    return await result;
+  } finally {
+    if (overlay && !overlay.isDestroyed()) overlay.close();
+    if (hideWindow && wasVisible && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    purchaseCaptureActive = false;
+  }
+});
+
 ipcMain.handle('updater:check', async () => {
   if (!app.isPackaged) return { available: false, message: '开发模式下不检查更新。' };
   try {
@@ -310,9 +445,13 @@ ipcMain.handle('data:status', async () => {
 });
 
 ipcMain.handle('data:load', async () => {
-  const cached = await readCachedData();
-  const status = await activeDataStatus();
-  return { bundle: cached?.bundle || null, ...status };
+  const bundled = await readBundledDataManifest();
+  const cached = await readCachedData({ bundled, includeBundle: true });
+  if (cached?.bundle?.datasets) {
+    // 审查明细仅供资料构建/核验，界面不使用；不跨进程复制这份大型冗余数据。
+    delete cached.bundle.datasets.materialSourceAudit;
+  }
+  return { bundle: cached?.bundle || null, source: cached ? 'cache' : 'bundled', current: cached?.manifest || bundled, bundled };
 });
 
 ipcMain.handle('data:check', async () => {
@@ -340,7 +479,7 @@ ipcMain.handle('data:apply', async () => {
     if (sameVersion(status.current.version, latest.version)) {
       return { available: true, updated: false, current: status.current, message: '当前资料已是最新版本。' };
     }
-    const { raw } = await fetchDataBundle(latest, remote.manifestUrl);
+    const raw = await fetchDataBundle(latest, remote.manifestUrl);
     await writeDataCache(latest, raw);
     return { available: true, updated: true, current: latest, message: `资料 ${latest.version} 已下载，重载后生效。` };
   } catch (error) {

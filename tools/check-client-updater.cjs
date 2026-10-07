@@ -20,7 +20,7 @@ const mainHarness = async (packaged = true) => {
   const app = { isPackaged: packaged, whenReady: () => ({ then() {} }), on: (name, fn) => appHandlers.set(name, fn), quit: () => { quits++; } };
   const electron = { app, BrowserWindow: { getAllWindows: () => [{ webContents: { send: (_channel, status) => statuses.push(status) } }] }, ipcMain: { handle: (name, fn) => handlers.set(name, fn) } };
   const context = vm.createContext({
-    require: name => name === 'electron' ? electron : name === 'electron-updater' ? { autoUpdater: updater } : require(name),
+    require: name => name === 'electron' ? electron : name === 'electron-updater' ? { autoUpdater: updater } : name === './capture-geometry.cjs' ? require(path.join(root, 'electron', 'capture-geometry.cjs')) : require(name),
     __dirname: path.join(root, 'electron'), process: { platform: 'win32' },
     setTimeout: fn => timers.push(fn), setInterval: fn => timers.push(fn)
   });
@@ -51,7 +51,7 @@ const rendererHarness = (desktop = true) => {
   assert.ok(start > 0 && end > start, '必须检查实际前端更新处理代码');
   vm.runInContext(rendererSource.slice(start, end), context);
   const backdropStart = rendererSource.indexOf("  document.querySelectorAll('dialog').forEach(dialog => {", end);
-  const backdropEnd = rendererSource.indexOf('  const purchaseQuantity', backdropStart);
+  const backdropEnd = rendererSource.indexOf('  const purchaseOcrDialog', backdropStart);
   vm.runInContext(rendererSource.slice(backdropStart, backdropEnd), context);
   return { element, order, status: value => statusCallback(value), failSave: error => { saveError = error; }, install: fn => { install = fn; } };
 };
