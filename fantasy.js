@@ -1433,7 +1433,7 @@ window.addEventListener('load', async () => {
     <dialog id="bundle-detail-dialog"><div class="detail-modal"><div class="header"><div><div id="bundle-detail-meta" class="meta"></div><h2 id="bundle-detail-title">装备详情</h2><div class="sub">成品仅作为清单显示；成本仅统计递归展开后的基础制作素材。</div></div><button class="btn secondary" data-close="bundle-detail-dialog">关闭</button></div><div id="bundle-detail-content"></div></div></dialog>
     <dialog id="recipe-reference-dialog"><div class="modal price-form"><div class="header"><div><div id="recipe-reference-meta" class="meta">潜水艇配方参考</div><h2 id="recipe-reference-title">制作配方</h2><div class="sub">此处仅核对官方配方结构，不参与当前市场 / 兑换成本核算。</div></div><button class="btn secondary" data-close="recipe-reference-dialog">关闭</button></div><div id="recipe-reference-content"></div></div></dialog>
     <dialog id="purchase-dialog"><form id="purchase-form" class="modal price-form" novalidate><h2 id="purchase-title">记录采购</h2><label>日期<input id="purchase-date" type="date"></label><label>时间（可选）<input id="purchase-time" type="time"></label><div id="purchase-voucher-summary" class="card" style="box-shadow:none;background:#f3f8f9" hidden></div><label id="purchase-kind-label">采购方式<select id="purchase-kind"></select></label><div id="purchase-kind-hint" class="sub" style="margin:-4px 0 10px" hidden></div><div id="purchase-direct-fields"><label>购买数量<input id="purchase-quantity" type="number" min="0" step="any"></label><label>税率<select id="purchase-tax"><option value="0.05">5%</option><option value="0">0%</option></select></label><label>单价<input id="purchase-unit" type="text" inputmode="decimal" autocomplete="off"></label><label>合价（含税）<input id="purchase-total" type="text" inputmode="decimal" autocomplete="off"></label><div class="purchase-image-actions"><button id="purchase-select-image" type="button" class="btn secondary">选择图片识别</button><button id="purchase-paste-image" type="button" class="btn secondary">粘贴图片</button><div id="purchase-capture-controls" hidden><button id="purchase-capture-image" type="button" class="btn secondary">截图识别</button><label class="purchase-capture-hide"><input id="purchase-hide-window" type="checkbox" checked>截图时隐藏当前窗口</label><label>显示器 <select id="purchase-capture-display"></select></label></div></div><input id="purchase-image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></div><div id="purchase-exchange-fields" hidden><div id="purchase-exchange-note" class="sub"></div><label>兑换次数<input id="purchase-exchange-turns" type="number" min="0" step="any"></label><label id="purchase-source-price-label">凭证单价<input id="purchase-source-price" type="text" inputmode="decimal" autocomplete="off"></label><div id="purchase-exchange-summary" class="card" style="box-shadow:none;background:#f3f8f9"></div></div><p id="purchase-error" role="alert" style="margin:12px 0 0;color:#b5423a" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" data-close="purchase-dialog">取消</button><button class="btn">保存采购</button></div></form></dialog>
-    <dialog id="purchase-ocr-dialog"><div class="modal purchase-ocr-modal"><div class="header"><div><div class="meta">采购图片识别 · 仅在本机处理</div><h2 id="purchase-ocr-title">核对识别结果</h2><div class="sub">当前材料固定；每行独立入账。截图中的单价按 5% 税率计算合价。</div></div><button type="button" id="purchase-ocr-close" class="btn secondary">关闭</button></div><p id="purchase-ocr-status" class="sub" role="status"></p><div class="purchase-ocr-preview"><img id="purchase-ocr-image" alt="待识别的采购记录截图"></div><div class="table-wrap purchase-ocr-table-wrap"><table class="ledger purchase-ocr-table"><thead><tr><th>录入</th><th>日期</th><th>时间</th><th>单价</th><th>数量</th><th>合价（含税）</th><th>核对提示</th></tr></thead><tbody id="purchase-ocr-rows"></tbody></table></div><p id="purchase-ocr-error" role="alert" class="status" hidden></p><div class="modal-actions"><button type="button" id="purchase-ocr-retry" class="btn secondary">换一张图片</button><button type="button" id="purchase-ocr-add" class="btn secondary">补一行</button><button type="button" id="purchase-ocr-save" class="btn">确认录入所选记录</button></div></div></dialog>
+    <dialog id="purchase-ocr-dialog"><div class="modal purchase-ocr-modal"><div class="header"><div><div class="meta">采购图片识别 · 仅在本机处理</div><h2 id="purchase-ocr-title">核对识别结果</h2><div class="sub">当前材料固定；每行独立入账。截图中的单价按 5% 税率计算合价。</div></div><button type="button" id="purchase-ocr-close" class="btn secondary">关闭</button></div><p id="purchase-ocr-status" class="sub" role="status"></p><div class="purchase-ocr-preview"><img id="purchase-ocr-image" alt="待识别的采购记录截图"></div><div class="table-wrap purchase-ocr-table-wrap"><table class="ledger purchase-ocr-table"><colgroup><col class="purchase-ocr-col-select"><col class="purchase-ocr-col-date"><col class="purchase-ocr-col-time"><col class="purchase-ocr-col-unit"><col class="purchase-ocr-col-quantity"><col class="purchase-ocr-col-total"><col></colgroup><thead><tr><th><label class="purchase-ocr-select-all"><input type="checkbox" id="purchase-ocr-select-all" aria-label="全选录入记录" disabled>全选</label></th><th>日期</th><th>时间</th><th>单价</th><th>数量</th><th>合价（含税）</th><th>核对提示</th></tr></thead><tbody id="purchase-ocr-rows"></tbody></table></div><p id="purchase-ocr-error" role="alert" class="status" hidden></p><div class="modal-actions"><button type="button" id="purchase-ocr-retry" class="btn secondary">换一张图片</button><button type="button" id="purchase-ocr-add" class="btn secondary">补一行</button><button type="button" id="purchase-ocr-save" class="btn">确认录入所选记录</button></div></div></dialog>
     <dialog id="purchase-manager-dialog"><div class="modal"><div class="header"><div><div id="purchase-manager-meta" class="meta">材料采购</div><h2 id="purchase-manager-title">采购价格</h2><div id="purchase-manager-average" class="sub"></div></div><div><button id="purchase-manager-add" class="btn">+ 记录采购</button> <button class="btn secondary" data-close="purchase-manager-dialog">关闭</button></div></div><div id="purchase-manager-content"></div></div></dialog>
     <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div><input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden"><label>搜索材料名称或物品 ID<input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"></label><div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div><label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><div id="trade-listing-category-note" class="trade-input-reference">选择材料后自动识别来源分类。</div><label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label><div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存本机库存材料</button></div></form></dialog>
     <dialog id="trade-quantity-dialog"><form id="trade-quantity-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改库存组数</h2><div id="trade-quantity-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-quantity-dialog">关闭</button></div><input id="trade-quantity-id" type="hidden"><label>组数<input id="trade-quantity-groups" type="number" min="1" step="1" required></label><p id="trade-quantity-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存组数</button></div></form></dialog>
@@ -2744,9 +2744,17 @@ window.addEventListener('load', async () => {
     const parts = suiteParts(suite).filter(Boolean);
     return parts.length ? Math.min(...parts.map(part => submarineStock(part).q)) : 0;
   };
-  const suiteCost = suite => suiteParts(suite).filter(Boolean).reduce((sum, part) => {
-    const value = submarineStock(part); return sum + (value.q ? value.v / value.q : productionPlan(submarineRow(part)).total);
-  }, 0);
+  const submarineCurrentPlan = part => productionPlan(submarineRow(part));
+  const submarineSuiteCurrentPlan = suite => {
+    const plans = suiteParts(suite).filter(Boolean).map(submarineCurrentPlan);
+    return { total: plans.reduce((sum, plan) => sum + plan.total, 0), missing: [...new Set(plans.flatMap(plan => plan.missing))] };
+  };
+  const suiteCost = suite => submarineSuiteCurrentPlan(suite).total;
+  const requireSubmarineSaleCost = (plan, label) => {
+    if (plan.missing.length) throw new Error('缺少当前材料价格：' + plan.missing.join('、'));
+    if (!(Number(plan.total) > 0) || !Number.isFinite(Number(plan.total))) throw new Error(label + '的当前材料成本无效，不能出售。');
+    return Number(plan.total);
+  };
   const suiteHistory = suite => submarineSuiteSales.filter(sale => sale.suiteId === suite.id);
   const lastSubmarineOperation = (kind, targetId) => submarineOperations.find(entry => entry.kind === kind && String(entry.targetId) === String(targetId));
   const submarineOperation = (kind, targetId, quantity, deltas, saleId = null) => {
@@ -2758,22 +2766,23 @@ window.addEventListener('load', async () => {
     if (!(price > 0)) throw new Error('请填写大于 0 的实际成交单价。');
     const parts = suiteParts(suite).filter(Boolean);
     if (!parts.length || suiteStock(suite) < quantity) throw new Error('该整套库存不足，不能售卖。');
+    const unitCostSnapshot = requireSubmarineSaleCost(submarineSuiteCurrentPlan(suite), suiteLabel(suite));
     const recipeCosts = parts.map(part => { const value = submarineStock(part), cost = value.v / value.q * quantity; return { partId: part.id, qty: quantity, cost }; });
     recipeCosts.forEach(entry => { const part = submarineData.parts.find(item => Number(item.id) === Number(entry.partId)); const value = submarineStock(part); value.q -= entry.qty; value.v -= entry.cost; value.sold = (value.sold || 0) + entry.qty; setSubmarineStock(part, value); });
-    const cost = recipeCosts.reduce((sum, row) => sum + row.cost, 0), amount = price * quantity;
-    const sale = { id: 'sub-suite-sale-' + Date.now(), suiteId: suite.id, item: '潜水艇整套 ' + suiteLabel(suite), date, q: quantity, amount, cost, profit: amount - cost, recipeCosts };
+    const cost = unitCostSnapshot * quantity, amount = price * quantity;
+    const sale = { id: 'sub-suite-sale-' + Date.now(), suiteId: suite.id, item: '潜水艇整套 ' + suiteLabel(suite), date, q: quantity, amount, cost, profit: amount - cost, costBasis: 'current-material', unitCostSnapshot, recipeCosts };
     submarineSuiteSales.unshift(sale);
     submarineOperation('suite-sale', suite.id, quantity, recipeCosts.map(entry => ({ ...entry })), sale.id);
   }
   function openSubmarineSuiteSale(suite) {
     state.pendingSubmarineSuite = suite.id;
-    const cost = suiteCost(suite), stockCount = suiteStock(suite), price = suitePrice(suite);
+    const plan = submarineSuiteCurrentPlan(suite), cost = plan.total, stockCount = suiteStock(suite), price = suitePrice(suite);
     document.querySelector('#submarine-suite-sale-title').textContent = '确认整套售卖 · ' + suiteLabel(suite);
     document.querySelector('#submarine-suite-sale-price').value = price > 0 ? Math.ceil(price) : '';
     document.querySelector('#submarine-suite-sale-price').placeholder = '请填写实际成交单价';
     document.querySelector('#submarine-suite-sale-quantity').value = 1;
     document.querySelector('#submarine-suite-sale-quantity').max = stockCount;
-    document.querySelector('#submarine-suite-sale-summary').innerHTML = `<div>当前可售 ${stockCount} 套 · ${suiteParts(suite).filter(Boolean).map(part => part.n).join('、')}</div><div style="margin-top:8px">成本 ${money(cost)} · 建议售价 ${money(price)} · 预计利润 ${money(price - cost)}</div>`;
+    document.querySelector('#submarine-suite-sale-summary').innerHTML = `<div>当前可售 ${stockCount} 套 · ${suiteParts(suite).filter(Boolean).map(part => part.n).join('、')}</div><div style="margin-top:8px">当前材料成本 ${plan.missing.length ? '待补价：' + plan.missing.join('、') : money(cost)} · 建议售价 ${money(price)} · 预计利润 ${plan.missing.length ? '—' : money(price - cost)}</div>`;
     document.querySelector('#submarine-suite-sale-dialog').showModal();
   }
   function openSubmarineSuiteEditor(suite = null) {
@@ -2835,11 +2844,11 @@ window.addEventListener('load', async () => {
       const issue = submarineRecordIssue(operation), id = suiteEditorEscape(operation?.id);
       return issue ? `<span class="suite-readonly-reason">${suiteEditorEscape(issue)}</span>` : `<button type="button" class="btn secondary" data-suite-record-edit="${id}">编辑</button> <button type="button" class="btn secondary danger-button" data-suite-record-delete="${id}">删除</button>`;
     };
-    document.querySelector('#' + prefix + '-sales-editor').innerHTML = `<h3>${label}销售记录</h3><p class="sub">修改或删除销售会同步共享部件库存及相关销售利润。${single ? '这里只列出单件销售；整套销售请在对应套装中管理。' : ''}</p><div class="table-wrap suite-history-table"><table class="ledger"><thead><tr><th>日期／部件</th><th>${countLabel}</th><th>${single ? '单件' : '单套'}成交价</th><th>销售额／成本／利润</th><th>操作</th></tr></thead><tbody>${sales.map(sale => {
+    document.querySelector('#' + prefix + '-sales-editor').innerHTML = `<h3>${label}销售记录</h3><p class="sub">修改数量按出售时锁定的当前材料成本单价计算；修改日期或成交价不改变成本。${single ? '这里只列出单件销售；整套销售请在对应套装中管理。' : ''}</p><div class="table-wrap suite-history-table"><table class="ledger"><thead><tr><th>日期／部件</th><th>${countLabel}</th><th>${single ? '单件' : '单套'}成交价</th><th>销售额／成本／利润</th><th>操作</th></tr></thead><tbody>${sales.map(sale => {
       const operation = operationForSale(sale);
       return `<tr><td class="label">${suiteEditorEscape(sale.date)}<small>${suiteEditorEscape(submarineRecordParts(operation || { deltas: sale.recipeCosts }) || sale.item)}</small></td><td>${Number(sale.q)}</td><td>${money(Number(sale.amount) / Number(sale.q))}</td><td>${money(sale.amount)}<small>成本 ${money(sale.cost)} · 利润 ${money(sale.profit)}</small></td><td>${actions(operation)}</td></tr>`;
     }).join('') || `<tr><td colspan="5" class="empty">暂无${label}销售记录</td></tr>`}</tbody></table></div>`;
-    document.querySelector('#' + prefix + '-crafts-editor').innerHTML = `<h3>历史入库记录</h3><p class="sub">显示入库时的部件组合；修改或删除后，会重算共享库存及后续销售成本。若造成库存不足，则无法删除。${single ? '这里只列出单件入库；来自整套的入库请在对应套装中管理。' : ''}</p><div class="table-wrap suite-history-table"><table class="ledger"><thead><tr><th>日期／部件</th><th>入库${countLabel}</th><th>入库总成本</th><th>操作</th></tr></thead><tbody>${crafts.map(operation => `<tr><td class="label">${suiteEditorEscape(operation.date)}<small>${suiteEditorEscape(submarineRecordParts(operation))}</small></td><td>${Number(operation.quantity)}</td><td>${money((operation.deltas || []).reduce((sum, delta) => sum + Number(delta.cost || 0), 0))}</td><td>${actions(operation)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">暂无${label}入库记录</td></tr>`}</tbody></table></div>`;
+    document.querySelector('#' + prefix + '-crafts-editor').innerHTML = `<h3>历史入库记录</h3><p class="sub">显示入库时的部件组合；修改或删除后，会重算共享库存的入库账面成本，已保存的销售成本与利润不变。若造成库存不足，则无法删除。${single ? '这里只列出单件入库；来自整套的入库请在对应套装中管理。' : ''}</p><div class="table-wrap suite-history-table"><table class="ledger"><thead><tr><th>日期／部件</th><th>入库${countLabel}</th><th>入库总成本</th><th>操作</th></tr></thead><tbody>${crafts.map(operation => `<tr><td class="label">${suiteEditorEscape(operation.date)}<small>${suiteEditorEscape(submarineRecordParts(operation))}</small></td><td>${Number(operation.quantity)}</td><td>${money((operation.deltas || []).reduce((sum, delta) => sum + Number(delta.cost || 0), 0))}</td><td>${actions(operation)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">暂无${label}入库记录</td></tr>`}</tbody></table></div>`;
     document.querySelectorAll('[data-suite-record-edit]').forEach(button => { button.onclick = () => openSubmarineRecordEditor(button.dataset.suiteRecordEdit); });
     document.querySelectorAll('[data-suite-record-delete]').forEach(button => { button.onclick = () => deleteSubmarineRecord(button.dataset.suiteRecordDelete); });
   }
@@ -2870,7 +2879,7 @@ window.addEventListener('load', async () => {
     const detail = document.querySelector('#bundle-detail-dialog');
     if (detail.open && suite) openSubmarineSuiteDetail(suite);
     if (detail.open && part) openSubmarineDetail(part);
-    submarineEditorStatus().textContent = '已保存，库存和相关销售利润已同步更新。';
+    submarineEditorStatus().textContent = '已保存，库存账面成本已同步更新；历史销售成本与利润保持原记录。';
   }
   function showSubmarineRecordError(message) {
     const error = document.querySelector('#submarine-record-error');
@@ -2880,8 +2889,8 @@ window.addEventListener('load', async () => {
     const operation = submarineOperations.find(row => row.id === operationId);
     if (!operation) { submarineEditorStatus().textContent = '未找到待删除的历史记录。'; return; }
     const message = operation.kind.endsWith('-craft')
-      ? '删除这条入库记录？将扣除该次入库的部件数量，并重算共享库存及后续销售成本和利润。若导致库存不足，将保留原账目。'
-      : '删除这条销售记录？对应部件将恢复库存，并重算后续销售成本和利润。';
+      ? '删除这条入库记录？将扣除该次入库的部件数量，并重算共享库存账面成本；已售成本与利润不变。若导致库存不足，将保留原账目。'
+      : '删除这条销售记录？对应部件将按原入库账面成本恢复库存，其他销售的成本与利润不变。';
     if (!confirm(message)) return;
     try {
       const next = window.FF14_SUBMARINE_LEDGER.edit(submarineLedgerSnapshot(), { operationId, deleteRecord: true });
@@ -2949,13 +2958,14 @@ window.addEventListener('load', async () => {
     if (!(price > 0)) throw new Error('请填写大于 0 的实际成交单价。');
     const value = submarineStock(part);
     if (value.q < quantity) throw new Error('部件库存不足，不能售卖。');
-    const cost = value.v / value.q * quantity;
-    value.q -= quantity; value.v -= cost; value.sold = (value.sold || 0) + quantity;
+    const unitCostSnapshot = requireSubmarineSaleCost(submarineCurrentPlan(part), part.n);
+    const bookCost = value.v / value.q * quantity;
+    value.q -= quantity; value.v -= bookCost; value.sold = (value.sold || 0) + quantity;
     setSubmarineStock(part, value);
-    const amount = price * quantity;
-    const sale = { id: 'sub-sale-' + Date.now(), partId: part.id, item: part.n, date, q: quantity, amount, cost, profit: amount - cost };
+    const amount = price * quantity, cost = unitCostSnapshot * quantity;
+    const sale = { id: 'sub-sale-' + Date.now(), partId: part.id, item: part.n, date, q: quantity, amount, cost, profit: amount - cost, costBasis: 'current-material', unitCostSnapshot };
     submarineSales.unshift(sale);
-    submarineOperation('part-sale', part.id, quantity, [{ partId: part.id, qty: quantity, cost }], sale.id);
+    submarineOperation('part-sale', part.id, quantity, [{ partId: part.id, qty: quantity, cost: bookCost }], sale.id);
   }
   function undoSubmarineOperation(kind, targetId) {
     const index = submarineOperations.findIndex(entry => entry.kind === kind && String(entry.targetId) === String(targetId));
@@ -3002,18 +3012,18 @@ window.addEventListener('load', async () => {
     document.querySelector('#submarine-craft-title').textContent = '制作入库 · ' + (isSuite ? suiteLabel(target) : target.n);
     document.querySelector('#submarine-craft-quantity-label').firstChild.textContent = isSuite ? '制作套数' : '制作数量';
     document.querySelector('#submarine-craft-quantity').value = 1;
-    document.querySelector('#submarine-craft-summary').innerHTML = isSuite ? `<div>${suiteParts(target).filter(Boolean).map(part => part.n).join('、')}</div><div class="meta" style="margin-top:8px">每套预计成本 ${money(suiteCost(target))}</div>` : `<div>${target.n}</div><div class="meta" style="margin-top:8px">每件预计成本 ${money(productionPlan(submarineRow(target)).total)}</div>`;
+    document.querySelector('#submarine-craft-summary').innerHTML = isSuite ? `<div>${suiteParts(target).filter(Boolean).map(part => part.n).join('、')}</div><div class="meta" style="margin-top:8px">每套当前材料成本 ${money(suiteCost(target))}</div>` : `<div>${target.n}</div><div class="meta" style="margin-top:8px">每件当前材料成本 ${money(submarineCurrentPlan(target).total)}</div>`;
     document.querySelector('#submarine-craft-dialog').showModal();
   }
   function openSubmarineSale(part) {
-    const stockValue = submarineStock(part), price = submarinePrice(part), cost = stockValue.q ? stockValue.v / stockValue.q : 0;
+    const stockValue = submarineStock(part), price = submarinePrice(part), plan = submarineCurrentPlan(part), cost = plan.total;
     state.pendingSubmarineSale = part.id;
     document.querySelector('#submarine-sale-quantity').value = 1;
     document.querySelector('#submarine-sale-quantity').max = stockValue.q;
     document.querySelector('#submarine-sale-price').value = price > 0 ? Math.ceil(price) : '';
     document.querySelector('#submarine-sale-price').placeholder = '请填写实际成交单价';
     document.querySelector('#submarine-sale-title').textContent = '确认售卖 · ' + part.n;
-    document.querySelector('#submarine-sale-summary').innerHTML = `<div>当前库存 ${stockValue.q}</div><div style="margin-top:8px">售价 ${money(price)} · 销售成本 ${money(cost)} · 预计利润 ${money(price - cost)}</div>`;
+    document.querySelector('#submarine-sale-summary').innerHTML = `<div>当前库存 ${stockValue.q}</div><div style="margin-top:8px">售价 ${money(price)} · 当前材料成本 ${plan.missing.length ? '待补价：' + plan.missing.join('、') : money(cost)} · 预计利润 ${plan.missing.length ? '—' : money(price - cost)}</div>`;
     document.querySelector('#submarine-sale-dialog').showModal();
   }
   const submarineRawRecipe = (uid, parentJob = null) => {
@@ -3298,11 +3308,11 @@ window.addEventListener('load', async () => {
     document.querySelector('#overview-sales-dialog').showModal();
   }
   function openSubmarineSuiteDetail(suite) {
-    const parts = suiteParts(suite).filter(Boolean), history = suiteHistory(suite), cost = suiteCost(suite), price = suitePrice(suite);
+    const parts = suiteParts(suite).filter(Boolean), history = suiteHistory(suite), plan = submarineSuiteCurrentPlan(suite), cost = plan.total, price = suitePrice(suite);
     const partMaterials = parts.map(part => data.m.find(material => String(material.uid) === String(part.id))).filter(Boolean);
     document.querySelector('#bundle-detail-meta').textContent = '潜水艇售卖 > 整套 ' + suiteLabel(suite);
     document.querySelector('#bundle-detail-title').textContent = suiteLabel(suite) + ' 套装详情';
-    document.querySelector('#bundle-detail-content').innerHTML = `<div class="cards"><div class="card"><small>剩余套数</small><b>${suiteStock(suite)}</b></div><div class="card"><small>每套成本</small><b>${money(cost)}</b></div><div class="card"><small>建议售价</small><b>${money(price)}</b></div><div class="card"><small>预计利润</small><b>${money(price - cost)}</b></div></div><div class="modal-actions" style="justify-content:flex-start"><button type="button" class="btn secondary" data-suite-market-refresh ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '刷新中…' : '刷新部件市场价'}</button><small class="meta">市场参考价为 Universalis 中国区 HQ／NQ 挂单加权均价，未含税，仅供售卖定价参考。</small></div><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>部位</th><th>部件</th><th>库存</th><th>单件成本</th><th>市场参考价</th></tr></thead><tbody>${parts.map(part => { const marketMaterial = data.m.find(material => String(material.uid) === String(part.id)); return `<tr><td>${part.part}</td><td class="label"><button class="bundle-link" data-suite-part-detail="${part.id}">${itemLabelMarkup(part.id, part.n)}</button></td><td>${submarineStock(part).q}</td><td>${money(submarineStock(part).q ? submarineStock(part).v / submarineStock(part).q : productionPlan(submarineRow(part)).total)}</td><td>${marketSaleReferenceLabel(marketMaterial)}</td></tr>`; }).join('')}</tbody></table></div><section class="sales-history"><h3>整套销售历史</h3>${salesTable(history.map(row => ({ ...row, source: '潜水艇整套' })))}</section>`;
+    document.querySelector('#bundle-detail-content').innerHTML = `<div class="cards"><div class="card"><small>剩余套数</small><b>${suiteStock(suite)}</b></div><div class="card"><small>每套当前材料成本</small><b>${plan.missing.length ? '待补价' : money(cost)}</b></div><div class="card"><small>建议售价</small><b>${money(price)}</b></div><div class="card"><small>预计利润</small><b>${plan.missing.length ? '—' : money(price - cost)}</b></div></div><div class="modal-actions" style="justify-content:flex-start"><button type="button" class="btn secondary" data-suite-market-refresh ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '刷新中…' : '刷新部件市场价'}</button><small class="meta">市场参考价为 Universalis 中国区 HQ／NQ 挂单加权均价，未含税，仅供售卖定价参考。</small></div><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>部位</th><th>部件</th><th>库存</th><th>单件当前材料成本</th><th>市场参考价</th></tr></thead><tbody>${parts.map(part => { const marketMaterial = data.m.find(material => String(material.uid) === String(part.id)); const partPlan = submarineCurrentPlan(part); return `<tr><td>${part.part}</td><td class="label"><button class="bundle-link" data-suite-part-detail="${part.id}">${itemLabelMarkup(part.id, part.n)}</button></td><td>${submarineStock(part).q}</td><td>${partPlan.missing.length ? '待补价' : money(partPlan.total)}</td><td>${marketSaleReferenceLabel(marketMaterial)}</td></tr>`; }).join('')}</tbody></table></div><section class="sales-history"><h3>整套销售历史</h3>${salesTable(history.map(row => ({ ...row, source: '潜水艇整套' })))}</section>`;
     document.querySelectorAll('[data-suite-part-detail]').forEach(button => button.onclick = () => openSubmarineDetail(submarineData.parts.find(part => String(part.id) === button.dataset.suitePartDetail)));
     document.querySelector('[data-suite-market-refresh]').onclick = async () => {
       await refreshMarket(true, partMaterials);
@@ -4226,7 +4236,7 @@ window.addEventListener('load', async () => {
       return;
     }
     const root = document.querySelector('#submarine'), suite = submarineSalesTotals(submarineSuiteSales), part = submarineSalesTotals(submarineSales), stockValue = Object.values(submarineStocks).reduce((sum, value) => sum + Number(value.v || 0), 0), stockCount = Object.values(submarineStocks).reduce((sum, value) => sum + Number(value.q || 0), 0);
-    root.innerHTML = `<div class="header"><div><h1>潜水艇销售利润</h1><div class="sub">整套与单件销售独立统计，并同步计入总览销售流水。</div></div><button id="go-submarine-ledger" class="btn">进入潜水艇台账</button></div><div class="cards"><button class="card metric clickable" data-sub-report="suite"><small>整套销售 · 查看明细</small><b>${money(suite.amount)}</b><div class="meta">${suite.quantity} 套 · 成本 ${money(suite.cost)} · 利润 ${money(suite.profit)}</div></button><button class="card metric clickable" data-sub-report="part"><small>单件销售 · 查看明细</small><b>${money(part.amount)}</b><div class="meta">${part.quantity} 件 · 成本 ${money(part.cost)} · 利润 ${money(part.profit)}</div></button><div class="card metric"><small>潜水艇销售合计</small><b>${money(suite.amount + part.amount)}</b><div class="meta">成本 ${money(suite.cost + part.cost)} · 利润 ${money(suite.profit + part.profit)}</div></div><div class="card metric"><small>当前部件库存</small><b>${stockCount}</b><div class="meta">库存成本 ${money(stockValue)}</div></div></div><section class="profit-summary"><h2>整套销售利润</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>套装</th><th>销售套数</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody>${submarineSuites.map(item => { const total = submarineSalesTotals(suiteHistory(item)); return `<tr data-sub-suite-report="${item.id}"><td class="label"><button class="bundle-link" data-suite-detail="${item.id}">${suiteLabel(item)}</button></td><td>${total.quantity}</td><td>${money(total.amount)}</td><td>${money(total.cost)}</td><td class="profit">${money(total.profit)}</td><td class="margin">${total.cost ? Math.round(total.profit / total.cost * 100) + '%' : '—'}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">暂无整套配置</td></tr>'}</tbody></table></div></section><section class="profit-summary"><h2>单件销售利润</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>部件</th><th>销售数量</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody>${submarineData.parts.map(item => { const total = submarineSalesTotals(submarineHistory(item)); return `<tr data-sub-part-report="${item.id}"><td class="label"><button class="bundle-link" data-submarine-detail="${item.id}">${itemLabelMarkup(item.id, item.n)}</button></td><td>${total.quantity}</td><td>${money(total.amount)}</td><td>${money(total.cost)}</td><td class="profit">${money(total.profit)}</td><td class="margin">${total.cost ? Math.round(total.profit / total.cost * 100) + '%' : '—'}</td></tr>`; }).join('')}</tbody></table></div></section>`;
+    root.innerHTML = `<div class="header"><div><h1>潜水艇销售利润</h1><div class="sub">整套与单件销售独立统计，并同步计入总览销售流水。</div></div><button id="go-submarine-ledger" class="btn">进入潜水艇台账</button></div><div class="cards"><button class="card metric clickable" data-sub-report="suite"><small>整套销售 · 查看明细</small><b>${money(suite.amount)}</b><div class="meta">${suite.quantity} 套 · 已售锁定成本 ${money(suite.cost)} · 利润 ${money(suite.profit)}</div></button><button class="card metric clickable" data-sub-report="part"><small>单件销售 · 查看明细</small><b>${money(part.amount)}</b><div class="meta">${part.quantity} 件 · 已售锁定成本 ${money(part.cost)} · 利润 ${money(part.profit)}</div></button><div class="card metric"><small>潜水艇销售合计</small><b>${money(suite.amount + part.amount)}</b><div class="meta">已售锁定成本 ${money(suite.cost + part.cost)} · 利润 ${money(suite.profit + part.profit)}</div></div><div class="card metric"><small>当前部件库存</small><b>${stockCount}</b><div class="meta">入库账面成本 ${money(stockValue)}</div></div></div><section class="profit-summary"><h2>整套销售利润</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>套装</th><th>销售套数</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody>${submarineSuites.map(item => { const total = submarineSalesTotals(suiteHistory(item)); return `<tr data-sub-suite-report="${item.id}"><td class="label"><button class="bundle-link" data-suite-detail="${item.id}">${suiteLabel(item)}</button></td><td>${total.quantity}</td><td>${money(total.amount)}</td><td>${money(total.cost)}</td><td class="profit">${money(total.profit)}</td><td class="margin">${total.cost ? Math.round(total.profit / total.cost * 100) + '%' : '—'}</td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">暂无整套配置</td></tr>'}</tbody></table></div></section><section class="profit-summary"><h2>单件销售利润</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>部件</th><th>销售数量</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody>${submarineData.parts.map(item => { const total = submarineSalesTotals(submarineHistory(item)); return `<tr data-sub-part-report="${item.id}"><td class="label"><button class="bundle-link" data-submarine-detail="${item.id}">${itemLabelMarkup(item.id, item.n)}</button></td><td>${total.quantity}</td><td>${money(total.amount)}</td><td>${money(total.cost)}</td><td class="profit">${money(total.profit)}</td><td class="margin">${total.cost ? Math.round(total.profit / total.cost * 100) + '%' : '—'}</td></tr>`; }).join('')}</tbody></table></div></section>`;
     root.querySelector('#go-submarine-ledger').onclick = () => { state.submarineView = 'ledger'; renderSubmarine(); };
     root.querySelectorAll('[data-sub-report]').forEach(button => button.onclick = () => openSubmarineReport(button.dataset.subReport === 'suite' ? '潜水艇整套销售明细' : '潜水艇单件销售明细', button.dataset.subReport === 'suite' ? submarineSuiteSales : submarineSales));
     root.querySelectorAll('[data-suite-detail]').forEach(button => button.onclick = () => openSubmarineSuiteDetail(submarineSuites.find(item => item.id === button.dataset.suiteDetail)));
@@ -4239,8 +4249,8 @@ window.addEventListener('load', async () => {
     const root = document.querySelector('#submarine'), rows = submarineRows(), groups = [...new Set(rows.map(row => row.group))];
     // 兼容旧台账模板；统计区会在挂载后移除，利润仅在父级页面呈现。
     const statisticRows = [];
-    const suiteRows = submarineSuites.map(suite => { const parts = suiteParts(suite), cost = suiteCost(suite), price = suitePrice(suite), profit = price - cost; return `<tr><td class="label suite-code"><button class="bundle-link" data-suite-detail="${suite.id}">${suiteLabel(suite)}</button></td><td><b>${suiteStock(suite)}</b></td><td><button class="op-btn craft" data-suite-craft="${suite.id}">制作入库</button><button class="op-btn undo" data-suite-undo-craft="${suite.id}" ${lastSubmarineOperation('suite-craft', suite.id) ? '' : 'disabled'}>撤销</button></td><td><button class="op-btn sale" data-suite-sell="${suite.id}" ${suiteStock(suite) ? '' : 'disabled'}>整套出售</button><button class="op-btn undo" data-suite-undo-sale="${suite.id}" ${lastSubmarineOperation('suite-sale', suite.id) ? '' : 'disabled'}>撤销</button></td><td class="price" data-suite-price="${suite.id}">${money(price)}</td><td>${money(cost)}</td><td class="profit">${money(profit)}</td><td class="margin">${cost ? Math.round(profit / cost * 100) + '%' : '—'}</td>${parts.map(part => `<td>${part ? `<span title="库存 ${submarineStock(part).q}">${part.n.replace(/级(船体|船尾|船首|舰桥)$/, '')} <small class="meta">${submarineStock(part).q}</small></span>` : '0'}</td>`).join('')}<td class="compact-actions"><button class="btn secondary" data-suite-edit="${suite.id}">编辑</button></td></tr>`; }).join('');
-    root.innerHTML = `<div class="header"><div><div class="meta">潜水艇售卖</div><h1>潜水艇售卖台账</h1><div class="sub">整套与单件均支持按数量制作、出售与撤销。</div></div><button id="add-submarine-suite" class="btn">+ 新增整套</button></div><section class="profit-summary" style="margin-top:20px"><h2>潜水艇销售利润统计</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>类别</th><th>套装 / 部件</th><th>已售数量</th><th>利润</th><th>利润率</th><th>明细</th></tr></thead><tbody>${statisticRows.map(row => `<tr><td>${row.type}</td><td class="label">${row.detail === 'suite' ? `<button class="bundle-link" data-suite-detail="${row.id}">${row.label}</button>` : `<button class="bundle-link" data-submarine-detail="${row.id}">${itemLabelMarkup(row.id, row.label)}</button>`}</td><td>${row.total.quantity}</td><td class="profit">${money(row.total.profit)}</td><td class="margin">${row.total.cost ? Math.round(row.total.profit / row.total.cost * 100) + '%' : '—'}</td><td><button class="btn secondary" data-submarine-stat-detail="${row.detail}:${row.id}">查看销售明细</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无潜水艇销售记录</td></tr>'}</tbody></table></div></section><div class="table-wrap"><table class="ledger"><thead><tr><th>套装简称</th><th>剩余套数</th><th>制作入库</th><th>整套出售</th><th>建议售价</th><th>成本</th><th>利润</th><th>利润率</th><th>船体</th><th>船尾</th><th>船首</th><th>舰桥</th><th>操作</th></tr></thead><tbody>${suiteRows || '<tr><td colspan="13" class="empty">暂无潜水艇整套</td></tr>'}</tbody></table></div><details id="submarine-parts-details" class="material-category" style="margin-top:20px" ${state.submarinePartsOpen ? 'open' : ''}><summary>单部件制作与售卖<span>按等级展开</span></summary><div class="table-wrap"><table class="ledger"><thead><tr><th>潜水艇等级 / 部件</th><th>库存</th><th>制作</th><th>售卖</th><th>建议售价</th><th>成本价</th><th>利润</th><th>利润率</th><th>操作</th></tr></thead><tbody>${groups.map(group => { const expanded = state.submarineGroups[group]; return `<tr class="group-row"><td colspan="9"><button class="group-toggle" data-submarine-group="${group}"><span>${group}</span><b>${expanded ? '⌃' : '⌄'}</b></button></td></tr>${expanded ? rows.filter(row => row.group === group).map(row => { const part = submarineData.parts.find(item => item.id === row.partId), value = submarineStock(part), cost = value.q ? value.v / value.q : productionPlan(row).total, price = submarinePrice(part), profit = price - cost; return `<tr class="detail"><td class="label"><button class="bundle-link" data-submarine-detail="${part.id}">${itemLabelMarkup(part.id, part.n)}</button></td><td><b>${value.q}</b></td><td><button class="op-btn craft" data-submarine-craft="${part.id}">制作入库</button><button class="op-btn undo" data-submarine-undo-craft="${part.id}" ${lastSubmarineOperation('part-craft', part.id) ? '' : 'disabled'}>撤销</button></td><td><button class="op-btn sale" data-submarine-sell="${part.id}" ${value.q ? '' : 'disabled'}>出售</button><button class="op-btn undo" data-submarine-undo-sale="${part.id}" ${lastSubmarineOperation('part-sale', part.id) ? '' : 'disabled'}>撤销</button></td><td class="price" data-submarine-price="${part.id}">${money(price)}</td><td>${money(cost)}</td><td class="profit">${money(profit)}</td><td class="margin">${cost ? Math.round(profit / cost * 100) + '%' : '—'}</td><td><button class="btn secondary" data-submarine-part-edit="${part.id}">编辑</button></td></tr>`; }).join('') : ''}`; }).join('')}</tbody></table></div></details>`;
+    const suiteRows = submarineSuites.map(suite => { const parts = suiteParts(suite), plan = submarineSuiteCurrentPlan(suite), cost = plan.total, price = suitePrice(suite), profit = price - cost; return `<tr><td class="label suite-code"><button class="bundle-link" data-suite-detail="${suite.id}">${suiteLabel(suite)}</button></td><td><b>${suiteStock(suite)}</b></td><td><button class="op-btn craft" data-suite-craft="${suite.id}">制作入库</button><button class="op-btn undo" data-suite-undo-craft="${suite.id}" ${lastSubmarineOperation('suite-craft', suite.id) ? '' : 'disabled'}>撤销</button></td><td><button class="op-btn sale" data-suite-sell="${suite.id}" ${suiteStock(suite) ? '' : 'disabled'}>整套出售</button><button class="op-btn undo" data-suite-undo-sale="${suite.id}" ${lastSubmarineOperation('suite-sale', suite.id) ? '' : 'disabled'}>撤销</button></td><td class="price" data-suite-price="${suite.id}">${money(price)}</td><td>${plan.missing.length ? '待补价' : money(cost)}</td><td class="profit">${plan.missing.length ? '—' : money(profit)}</td><td class="margin">${!plan.missing.length && cost ? Math.round(profit / cost * 100) + '%' : '—'}</td>${parts.map(part => `<td>${part ? `<span title="库存 ${submarineStock(part).q}">${part.n.replace(/级(船体|船尾|船首|舰桥)$/, '')} <small class="meta">${submarineStock(part).q}</small></span>` : '0'}</td>`).join('')}<td class="compact-actions"><button class="btn secondary" data-suite-edit="${suite.id}">编辑</button></td></tr>`; }).join('');
+    root.innerHTML = `<div class="header"><div><div class="meta">潜水艇售卖</div><h1>潜水艇售卖台账</h1><div class="sub">整套与单件均支持按数量制作、出售与撤销。</div></div><button id="add-submarine-suite" class="btn">+ 新增整套</button></div><section class="profit-summary" style="margin-top:20px"><h2>潜水艇销售利润统计</h2><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>类别</th><th>套装 / 部件</th><th>已售数量</th><th>利润</th><th>利润率</th><th>明细</th></tr></thead><tbody>${statisticRows.map(row => `<tr><td>${row.type}</td><td class="label">${row.detail === 'suite' ? `<button class="bundle-link" data-suite-detail="${row.id}">${row.label}</button>` : `<button class="bundle-link" data-submarine-detail="${row.id}">${itemLabelMarkup(row.id, row.label)}</button>`}</td><td>${row.total.quantity}</td><td class="profit">${money(row.total.profit)}</td><td class="margin">${row.total.cost ? Math.round(row.total.profit / row.total.cost * 100) + '%' : '—'}</td><td><button class="btn secondary" data-submarine-stat-detail="${row.detail}:${row.id}">查看销售明细</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无潜水艇销售记录</td></tr>'}</tbody></table></div></section><div class="table-wrap"><table class="ledger"><thead><tr><th>套装简称</th><th>剩余套数</th><th>制作入库</th><th>整套出售</th><th>建议售价</th><th>当前材料成本</th><th>利润</th><th>利润率</th><th>船体</th><th>船尾</th><th>船首</th><th>舰桥</th><th>操作</th></tr></thead><tbody>${suiteRows || '<tr><td colspan="13" class="empty">暂无潜水艇整套</td></tr>'}</tbody></table></div><details id="submarine-parts-details" class="material-category" style="margin-top:20px" ${state.submarinePartsOpen ? 'open' : ''}><summary>单部件制作与售卖<span>按等级展开</span></summary><div class="table-wrap"><table class="ledger"><thead><tr><th>潜水艇等级 / 部件</th><th>库存</th><th>制作</th><th>售卖</th><th>建议售价</th><th>当前材料成本</th><th>利润</th><th>利润率</th><th>操作</th></tr></thead><tbody>${groups.map(group => { const expanded = state.submarineGroups[group]; return `<tr class="group-row"><td colspan="9"><button class="group-toggle" data-submarine-group="${group}"><span>${group}</span><b>${expanded ? '⌃' : '⌄'}</b></button></td></tr>${expanded ? rows.filter(row => row.group === group).map(row => { const part = submarineData.parts.find(item => item.id === row.partId), value = submarineStock(part), plan = submarineCurrentPlan(part), cost = plan.total, price = submarinePrice(part), profit = price - cost; return `<tr class="detail"><td class="label"><button class="bundle-link" data-submarine-detail="${part.id}">${itemLabelMarkup(part.id, part.n)}</button></td><td><b>${value.q}</b></td><td><button class="op-btn craft" data-submarine-craft="${part.id}">制作入库</button><button class="op-btn undo" data-submarine-undo-craft="${part.id}" ${lastSubmarineOperation('part-craft', part.id) ? '' : 'disabled'}>撤销</button></td><td><button class="op-btn sale" data-submarine-sell="${part.id}" ${value.q ? '' : 'disabled'}>出售</button><button class="op-btn undo" data-submarine-undo-sale="${part.id}" ${lastSubmarineOperation('part-sale', part.id) ? '' : 'disabled'}>撤销</button></td><td class="price" data-submarine-price="${part.id}">${money(price)}</td><td>${plan.missing.length ? '待补价' : money(cost)}</td><td class="profit">${plan.missing.length ? '—' : money(profit)}</td><td class="margin">${!plan.missing.length && cost ? Math.round(profit / cost * 100) + '%' : '—'}</td><td><button class="btn secondary" data-submarine-part-edit="${part.id}">编辑</button></td></tr>`; }).join('') : ''}`; }).join('')}</tbody></table></div></details>`;
     // 利润统计只在“潜水艇售卖”父级页面展示，台账保持为纯操作区。
     root.querySelector('section.profit-summary')?.remove();
     root.querySelector('#submarine-parts-details').ontoggle = event => { state.submarinePartsOpen = event.currentTarget.open; };
@@ -4840,6 +4850,7 @@ window.addEventListener('load', async () => {
   const purchaseOcrStatus = document.querySelector('#purchase-ocr-status');
   const purchaseOcrError = document.querySelector('#purchase-ocr-error');
   const purchaseOcrBody = document.querySelector('#purchase-ocr-rows');
+  const purchaseOcrSelectAll = document.querySelector('#purchase-ocr-select-all');
   const purchaseImageFile = document.querySelector('#purchase-image-file');
   let purchaseOcrPreviewUrl = null;
   let purchaseOcrGeneration = 0;
@@ -4868,8 +4879,23 @@ window.addEventListener('load', async () => {
     document.querySelector('#purchase-ocr-image').removeAttribute('src');
   };
   const purchaseOcrKey = row => [row.materialId, row.date, row.time || '', Number(row.quantity), Number(row.unitPrice)].join('|');
+  const updatePurchaseOcrSelectAll = () => {
+    const checkboxes = [...purchaseOcrBody.querySelectorAll('[data-ocr-select]')];
+    const selected = checkboxes.filter(checkbox => checkbox.checked).length;
+    purchaseOcrSelectAll.disabled = !checkboxes.length;
+    purchaseOcrSelectAll.checked = Boolean(checkboxes.length && selected === checkboxes.length);
+    purchaseOcrSelectAll.indeterminate = selected > 0 && selected < checkboxes.length;
+  };
   const renderPurchaseOcrRows = rows => {
-    purchaseOcrBody.innerHTML = rows.map((row, index) => `<tr data-ocr-row="${index}" class="${row.needsReview ? 'needs-review' : ''}"><td><input type="checkbox" data-ocr-select aria-label="录入第 ${index + 1} 笔" ${row.selected ?? !row.needsReview ? 'checked' : ''}></td><td><input type="date" data-ocr-date aria-label="第 ${index + 1} 笔日期"></td><td><input type="time" data-ocr-time aria-label="第 ${index + 1} 笔时间"></td><td><input type="number" min="0.01" step="any" data-ocr-unit aria-label="第 ${index + 1} 笔单价"></td><td><input type="number" min="1" step="1" data-ocr-quantity aria-label="第 ${index + 1} 笔数量"></td><td data-ocr-total>—</td><td data-ocr-note></td></tr>`).join('');
+    const existing = new Set(purchases.map(purchaseOcrKey));
+    const seen = new Set();
+    purchaseOcrBody.innerHTML = rows.map((row, index) => {
+      const key = purchaseOcrKey({ ...row, materialId: state.selectedMaterial });
+      const duplicate = existing.has(key) || seen.has(key);
+      seen.add(key);
+      const selected = row.selected ?? window.PurchaseOcr.defaultSelected(row, duplicate);
+      return `<tr data-ocr-row="${index}" class="${row.needsReview ? 'needs-review' : ''}"><td><input type="checkbox" data-ocr-select aria-label="录入第 ${index + 1} 笔" ${selected ? 'checked' : ''}></td><td><input type="date" data-ocr-date aria-label="第 ${index + 1} 笔日期"></td><td><input type="time" data-ocr-time aria-label="第 ${index + 1} 笔时间"></td><td><input type="number" min="0.01" step="any" data-ocr-unit aria-label="第 ${index + 1} 笔单价"></td><td><input type="number" min="1" step="1" data-ocr-quantity aria-label="第 ${index + 1} 笔数量"></td><td data-ocr-total>—</td><td data-ocr-note></td></tr>`;
+    }).join('');
     [...purchaseOcrBody.querySelectorAll('tr')].forEach((element, index) => {
       const row = rows[index];
       element.querySelector('[data-ocr-date]').value = row.date || '';
@@ -4916,9 +4942,14 @@ window.addEventListener('load', async () => {
       seen.add(key);
     });
     purchaseOcrError.hidden = true;
+    updatePurchaseOcrSelectAll();
   };
   purchaseOcrBody.addEventListener('input', updatePurchaseOcrReview);
   purchaseOcrBody.addEventListener('change', updatePurchaseOcrReview);
+  purchaseOcrSelectAll.addEventListener('change', () => {
+    purchaseOcrBody.querySelectorAll('[data-ocr-select]').forEach(checkbox => { checkbox.checked = purchaseOcrSelectAll.checked; });
+    updatePurchaseOcrReview();
+  });
   const startPurchaseImageRecognition = async source => {
     if (!source) return;
     if (source instanceof Blob && (!/^image\/(png|jpeg|webp)$/.test(source.type) || source.size > 12 * 1024 * 1024)) {
@@ -4931,6 +4962,7 @@ window.addEventListener('load', async () => {
     const material = data.m.find(item => item.id === state.selectedMaterial);
     document.querySelector('#purchase-ocr-title').textContent = `核对 ${material?.n || '材料'} 的采购记录`;
     purchaseOcrBody.replaceChildren();
+    updatePurchaseOcrSelectAll();
     purchaseOcrError.hidden = true;
     purchaseOcrStatus.textContent = '正在本机识别图片…';
     document.querySelector('#purchase-ocr-save').disabled = true;
@@ -4942,7 +4974,7 @@ window.addEventListener('load', async () => {
       if (generation !== purchaseOcrGeneration || !purchaseOcrDialog.open) return;
       renderPurchaseOcrRows(result.rows);
       purchaseOcrStatus.textContent = result.rows.length
-        ? `识别到 ${result.rows.length} 笔；请逐行核对。价格不确定的记录默认不勾选。`
+        ? `识别到 ${result.rows.length} 笔；请逐行核对。可能重复及已排除货币符号的记录默认勾选，其他不确定的记录默认不勾选。`
         : '未识别到完整的“单价、数量、月/日 时:分”记录，请重新框选表格或换一张图片。';
       document.querySelector('#purchase-ocr-save').disabled = !result.rows.length;
     } catch (error) {
@@ -4955,6 +4987,7 @@ window.addEventListener('load', async () => {
     window.PurchaseOcr.cancel().catch(() => {});
     releasePurchaseOcrPreview();
     purchaseOcrBody.replaceChildren();
+    updatePurchaseOcrSelectAll();
   });
   document.querySelector('#purchase-ocr-close').onclick = () => purchaseOcrDialog.close();
   document.querySelector('#purchase-ocr-retry').onclick = () => { purchaseOcrDialog.close(); purchaseImageFile.click(); };

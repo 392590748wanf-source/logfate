@@ -198,6 +198,11 @@
     return { entries, errors };
   };
 
+  const defaultSelected = (row, duplicate = false) => Boolean(
+    row.date && row.time && row.unitPrice && row.quantity &&
+    (duplicate || row.columnCorrected || !row.needsReview)
+  );
+
   let loadingScript;
   let activeWorker;
   let activeCancel;
@@ -309,7 +314,7 @@
     if (worker) await worker.terminate();
   };
 
-  const api = { inferDate, parseTsv, parseText, priceColumnBounds, reconcileColumnPrices, mergeRows, validateRows, validIsoDate, validTime, recognize, cancel };
+  const api = { inferDate, parseTsv, parseText, priceColumnBounds, reconcileColumnPrices, mergeRows, validateRows, defaultSelected, validIsoDate, validTime, recognize, cancel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.PurchaseOcr = api;
 })(typeof window !== 'undefined' ? window : globalThis);

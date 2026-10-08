@@ -76,6 +76,11 @@ const ambiguousTsv = joinedTsv.replace('2/91035', '10/121:18');
 assert.equal(ocr.parseTsv(ambiguousTsv, new Date(2026, 9, 7))[0].date, '');
 
 const good = { selected: true, date: '2026-10-07', time: '15:53', quantity: '48', unitPrice: '100' };
+assert.equal(ocr.defaultSelected({ ...good, needsReview: false }), true);
+assert.equal(ocr.defaultSelected({ ...good, needsReview: true }), false);
+assert.equal(ocr.defaultSelected({ ...good, needsReview: true }, true), true);
+assert.equal(ocr.defaultSelected({ ...good, needsReview: true, columnCorrected: true }), true);
+assert.equal(ocr.defaultSelected({ ...good, needsReview: true, unitPrice: '' }, true), false);
 assert.deepEqual(ocr.validateRows([good]).entries[0], { date: '2026-10-07', time: '15:53', quantity: 48, unitPrice: 100, tax: 0.05, total: 5040 });
 assert.equal(ocr.validateRows([good, { ...good, quantity: '0' }]).errors.length, 1);
 assert.equal(ocr.validateRows([{ ...good, selected: false }]).errors[0].message, '请勾选至少一笔采购记录');

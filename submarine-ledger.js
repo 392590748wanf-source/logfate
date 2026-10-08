@@ -7,6 +7,10 @@
   const quantity = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
   const money = value => value !== null && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0;
   const near = (left, right) => Math.abs(left - right) <= Math.max(0.00001, Math.abs(right) * 1e-10);
+  const saleUnitCost = sale => sale.costBasis
+    ? Number(sale.unitCostSnapshot)
+    : Number(sale.cost) / Number(sale.q);
+  const validSaleCostBasis = sale => !sale.costBasis || ['current-material', 'legacy-frozen'].includes(sale.costBasis);
   const dateValid = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
     && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
@@ -56,8 +60,12 @@
       if (!isCraft(operation)) {
         const sale = saleFor(before, operation);
         const target = operation.kind === 'suite-sale' ? sale.suiteId : sale.partId;
+        const bookCost = operation.deltas.reduce((sum, delta) => sum + Number(delta.cost), 0);
+        const unitCost = saleUnitCost(sale);
         if (String(target) !== String(operation.targetId) || Number(sale.q) !== Number(operation.quantity) || !money(sale.amount)
-          || !money(sale.cost) || !near(Number(sale.cost), operation.deltas.reduce((sum, delta) => sum + Number(delta.cost), 0))) fail('历史销售与库存操作不一致，不能保存。');
+          || !money(sale.cost) || !validSaleCostBasis(sale) || !money(unitCost)
+          || !near(Number(sale.cost), unitCost * Number(sale.q))
+          || (!sale.costBasis && !near(Number(sale.cost), bookCost))) fail('历史销售与库存操作不一致，不能保存。');
         if (related.filter(row => !isCraft(row) && row.kind === operation.kind && row.saleId === operation.saleId).length !== 1) fail('历史销售关联重复，不能保存。');
       }
     }
@@ -145,7 +153,10 @@
       }
       if (!isCraft(row)) {
         const sale = saleFor(next, row);
-        sale.cost = row.deltas.reduce((sum, delta) => sum + delta.cost, 0);
+        const originalSale = saleFor(before, row);
+        sale.costBasis = originalSale.costBasis || 'legacy-frozen';
+        sale.unitCostSnapshot = saleUnitCost(originalSale);
+        sale.cost = sale.unitCostSnapshot * Number(row.quantity);
         sale.profit = Number(sale.amount) - sale.cost;
         if (!Number.isFinite(sale.profit)) fail('销售金额无效，不能保存。');
         if (row.kind === 'suite-sale') sale.recipeCosts = clone(row.deltas);

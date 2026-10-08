@@ -29,14 +29,34 @@ const replayed = edit(original, { operationId: 'a-craft' });
 for (const id of [1, 2, 3]) { assert.equal(replayed.stocks[id].q, original.stocks[id].q); approx(replayed.stocks[id].v, original.stocks[id].v); }
 assert.equal(JSON.stringify(original), before);
 
-// A past cost edit reprices later sales in both shared suites and single-part sales.
+// A past inbound cost edit reprices inventory book value, not locked sales costs.
 const repriced = edit(original, { operationId: 'a-craft', quantity: 5, unitCosts: { 1: 200, 2: 300 }, date: '2026-10-01' });
-approx(repriced.suiteSales.find(row => row.id === 'a-sale').cost, 2000);
-approx(repriced.suiteSales.find(row => row.id === 'b-sale').cost, 765);
-approx(repriced.partSales[0].cost, 205);
+approx(repriced.suiteSales.find(row => row.id === 'a-sale').cost, 1500);
+approx(repriced.suiteSales.find(row => row.id === 'b-sale').cost, 690);
+approx(repriced.partSales[0].cost, 180);
+assert.equal(repriced.suiteSales.find(row => row.id === 'a-sale').costBasis, 'legacy-frozen');
+approx(repriced.suiteSales.find(row => row.id === 'a-sale').unitCostSnapshot, 300);
+approx(repriced.suiteSales.find(row => row.id === 'a-sale').profit, 3500);
 approx(repriced.stocks[1].v, 1230);
 assert.equal(repriced.operations.at(-1).date, '2026-10-01');
 assert.deepEqual(repriced.operations.map(row => row.id), original.operations.map(row => row.id));
+
+// New sales may lock current material costs that differ from inventory book deductions.
+const currentBasis = fixture();
+const currentSale = currentBasis.suiteSales.find(row => row.id === 'a-sale');
+currentSale.costBasis = 'current-material'; currentSale.unitCostSnapshot = 500;
+currentSale.cost = 2500; currentSale.profit = 2500;
+const currentRepriced = edit(currentBasis, { operationId: 'a-craft', unitCosts: { 1: 200, 2: 300 } });
+approx(currentRepriced.suiteSales.find(row => row.id === 'a-sale').cost, 2500);
+approx(currentRepriced.suiteSales.find(row => row.id === 'a-sale').profit, 2500);
+approx(currentRepriced.operations.find(row => row.id === 'a-sale-op').deltas.reduce((sum, row) => sum + row.cost, 0), 2000);
+const currentResized = edit(currentBasis, { operationId: 'a-sale-op', quantity: 4, date: '2026-10-03' });
+approx(currentResized.suiteSales.find(row => row.id === 'a-sale').cost, 2000);
+approx(currentResized.suiteSales.find(row => row.id === 'a-sale').profit, 2000);
+assert.equal(currentResized.suiteSales.find(row => row.id === 'a-sale').costBasis, 'current-material');
+const invalidSnapshot = copy(currentBasis);
+invalidSnapshot.suiteSales.find(row => row.id === 'a-sale').cost = 2400;
+assert.throws(() => edit(invalidSnapshot, { operationId: 'a-craft' }), /历史销售与库存操作不一致/);
 
 // Sale count, date and rounded unit price update costs and operations together.
 const revised = edit(original, { operationId: 'a-sale-op', quantity: 4, unitPrice: 1234.1, date: '2026-10-03' });
@@ -45,9 +65,9 @@ assert.equal(updatedSale.amount, 4940); assert.equal(updatedSale.q, 4); assert.e
 approx(updatedSale.cost, 1200); assert.equal(revised.stocks[1].q, 7); assert.equal(revised.stocks[2].q, 6);
 assert.equal(revised.operations.find(row => row.id === 'a-sale-op').quantity, 4);
 assert.equal(revised.operations.find(row => row.id === 'a-sale-op').date, '2026-10-03');
-approx(revised.partSales[0].cost, (600 + 1300) / 11);
+approx(revised.partSales[0].cost, 180);
 
-// Deletion restores stock, removes only the corresponding sale/operation and reprices later sales.
+// Deletion restores book stock without rewriting other sales.
 const deleted = edit(original, { operationId: 'a-sale-op', deleteSale: true });
 assert.equal(deleted.suiteSales.length, 1); assert.equal(deleted.operations.length, original.operations.length - 1);
 assert.equal(deleted.stocks[1].q, 11); assert.equal(deleted.stocks[2].q, 10);
@@ -72,8 +92,8 @@ assert.ok(!inboundDeleted.operations.some(row => row.id === 'a-craft'));
 assert.equal(inboundDeleted.stocks[1].q, 1); approx(inboundDeleted.stocks[1].v, 260);
 assert.equal(inboundDeleted.stocks[1].made, 10);
 assert.equal(inboundDeleted.stocks[2].q, 0); assert.equal(inboundDeleted.stocks[2].v, 0);
-approx(inboundDeleted.suiteSales.find(row => row.id === 'b-sale').cost, 930);
-approx(inboundDeleted.partSales[0].cost, 260);
+approx(inboundDeleted.suiteSales.find(row => row.id === 'b-sale').cost, 690);
+approx(inboundDeleted.partSales[0].cost, 180);
 assert.deepEqual(inboundDeleted.operations.map(row => row.id), original.operations.filter(row => row.id !== 'a-craft').map(row => row.id));
 assert.deepEqual(edit(original, { operationId: 'a-sale-op', deleteRecord: true }), deleted);
 assert.throws(() => edit(original, { operationId: 'b-craft', deleteRecord: true }), /船首.*库存不足/);
@@ -139,7 +159,7 @@ sharedAfterSingle.suiteSales.unshift({ id: 'after-single-sale', suiteId: 'b', da
 sharedAfterSingle.stocks[1] = { q: 6, v: 1410, made: 17, sold: 11 };
 sharedAfterSingle.stocks[3] = { q: 0, v: 0, made: 5, sold: 5 };
 const linked = edit(sharedAfterSingle, { operationId: 'last-part-craft', quantity: 3, unitCosts: { 1: 150 } });
-approx(linked.suiteSales[0].cost, 440); approx(linked.suiteSales[0].profit, 1560);
+approx(linked.suiteSales[0].cost, 570); approx(linked.suiteSales[0].profit, 1430);
 assert.equal(linked.stocks[1].q, 7); approx(linked.stocks[1].v, 1190);
 assert.equal(JSON.stringify(original), before);
 
@@ -147,6 +167,44 @@ assert.equal(JSON.stringify(original), before);
 const fs = require('node:fs'), vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('../fantasy.js'), 'utf8');
 const fn = (start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+// Sale commands lock the live recipe price while deducting the historic book value.
+const sellStocks = { 1: { q: 2, v: 200, made: 2, sold: 0 }, 2: { q: 2, v: 400, made: 2, sold: 0 } };
+const sellParts = [{ id: 1, n: '船体' }, { id: 2, n: '船尾' }];
+const sellSuiteSales = [], sellPartSales = [], sellOperations = [];
+let suitePlan = { total: 900, missing: [] }, partPlan = { total: 450, missing: [] };
+const sellContext = vm.createContext({
+  suiteParts: () => sellParts,
+  suiteStock: () => Math.min(...sellParts.map(part => sellStocks[part.id].q)),
+  submarineStock: part => sellStocks[part.id],
+  submarineData: { parts: sellParts },
+  setSubmarineStock: (part, stock) => { sellStocks[part.id] = stock; },
+  submarineSuiteCurrentPlan: () => suitePlan,
+  submarineCurrentPlan: () => partPlan,
+  suiteLabel: () => '测试套装',
+  submarineSuiteSales: sellSuiteSales,
+  submarineSales: sellPartSales,
+  submarineOperation: (...args) => sellOperations.push(args)
+});
+vm.runInContext(fn('  const requireSubmarineSaleCost', '  const suiteHistory'), sellContext);
+vm.runInContext(fn('  function submarineSellSuite(', '  function openSubmarineSuiteSale('), sellContext);
+vm.runInContext(fn('  function submarineSell(part', '  function undoSubmarineOperation('), sellContext);
+const sellSuite = { id: 'test-suite' };
+vm.runInContext("submarineSellSuite(sellSuite, 1000, '2026-10-08', 1)", Object.assign(sellContext, { sellSuite }));
+approx(sellSuiteSales[0].cost, 900); approx(sellSuiteSales[0].profit, 100);
+assert.equal(sellSuiteSales[0].costBasis, 'current-material');
+approx(sellSuiteSales[0].unitCostSnapshot, 900);
+approx(sellOperations[0][3].reduce((sum, row) => sum + row.cost, 0), 300);
+assert.equal(sellStocks[1].q, 1); approx(sellStocks[1].v, 100);
+suitePlan = { total: 0, missing: ['火之碎晶'] };
+assert.throws(() => vm.runInContext("submarineSellSuite(sellSuite, 1000, '2026-10-08', 1)", sellContext), /火之碎晶/);
+assert.equal(sellOperations.length, 1); assert.equal(sellStocks[1].q, 1);
+vm.runInContext("submarineSell(submarineData.parts[0], 600, '2026-10-08', 1)", sellContext);
+approx(sellPartSales[0].cost, 450); approx(sellPartSales[0].profit, 150);
+approx(sellOperations[1][3][0].cost, 100);
+assert.equal(sellStocks[1].q, 0); approx(sellStocks[1].v, 0);
+partPlan = { total: 0, missing: ['冰之碎晶'] };
+assert.throws(() => vm.runInContext("submarineSell(submarineData.parts[1], 600, '2026-10-08', 1)", sellContext), /冰之碎晶/);
+assert.equal(sellOperations.length, 2); assert.equal(sellStocks[2].q, 1);
 const storage = new Map(), stockRef = {}, opsRef = [], suiteRef = [], partRef = [];
 const elements = new Map();
 const element = selector => {
