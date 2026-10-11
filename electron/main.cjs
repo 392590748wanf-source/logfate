@@ -33,6 +33,7 @@ const BACKUP_KEYS = new Set([
   'ff14-leve-plans',
   'ff14-leve-sales-ledger',
   'ff14-leve-sale-price-presets',
+  'ff14-godstone-purchase-presets',
   'ff14-craft-scrip-manual-exchanges',
   'ff14-trade-inventory',
   'ff14-trade-source-cache',

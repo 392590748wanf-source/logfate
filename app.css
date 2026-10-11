@@ -190,6 +190,20 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .guide-material-prices dt { margin: 0 0 2px; color: var(--muted); font-size: 10px; }
 .guide-material-prices dd { margin: 0; color: var(--ink); font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
 .guide-material-purchase { align-self: start; padding: 4px 6px; font-size: 11px; white-space: nowrap; }
+.godstone-action-card { align-content: center; gap: 8px; }
+.godstone-action-card > b, .godstone-card-tier-label, .godstone-action-buttons { grid-column: 1 / -1; }
+.godstone-card-tier-label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.godstone-card-tier-label select { width: 100%; min-width: 0; padding: 5px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); font: 12px "Microsoft YaHei", sans-serif; }
+.godstone-action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+.godstone-action-buttons .btn { flex: 1; min-width: 82px; padding: 6px; font-size: 12px; }
+#godstone-bulk-dialog { width: min(820px, 90vw); max-width: none; max-height: 84vh; padding: 0; overflow: hidden; }
+.godstone-bulk-modal { min-width: 0; max-height: 84vh; overflow-y: auto; }
+.godstone-tier-label { max-width: 260px; }
+.godstone-bulk-table-wrap { margin-top: 12px; }
+.godstone-bulk-table { min-width: 610px; }
+.godstone-bulk-table td:first-child { width: 55px; }
+.godstone-bulk-table input[type="checkbox"] { width: 17px; height: 17px; cursor: pointer; }
+.godstone-bulk-total { text-align: right; font-weight: 700; }
 
 @media (min-width: 1280px) {
   .guide-material-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }

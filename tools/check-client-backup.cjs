@@ -20,7 +20,7 @@ const rendererContext = {
   confirm: () => shouldRestore
 };
 for (const name of [
-  'leveSalesStorageKey', 'levePricePresetStorageKey', 'craftScripManualStorageKey',
+  'leveSalesStorageKey', 'levePricePresetStorageKey', 'godstonePresetStorageKey', 'craftScripManualStorageKey',
   'tradeInventoryStorageKey', 'tradeSourceCacheStorageKey', 'garlandVentureCoreCacheStorageKey'
 ]) {
   const match = rendererSource.match(new RegExp(`const ${name} = '([^']+)';`));

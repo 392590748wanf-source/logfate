@@ -118,6 +118,11 @@ window.addEventListener('load', async () => {
   const levePricePresetStorageKey = 'ff14-leve-sale-price-presets';
   let levePricePresets = JSON.parse(localStorage.getItem(levePricePresetStorageKey) || '{}');
   if (!levePricePresets || Array.isArray(levePricePresets) || typeof levePricePresets !== 'object') levePricePresets = {};
+  const godstonePresetStorageKey = 'ff14-godstone-purchase-presets';
+  let godstonePurchasePresets;
+  try { godstonePurchasePresets = JSON.parse(localStorage.getItem(godstonePresetStorageKey) || '{}'); }
+  catch (_) { godstonePurchasePresets = {}; }
+  if (!godstonePurchasePresets || Array.isArray(godstonePurchasePresets) || typeof godstonePurchasePresets !== 'object') godstonePurchasePresets = {};
   const submarineStocks = JSON.parse(localStorage.getItem('ff14-submarine-stocks') || '{}');
   const submarineSales = JSON.parse(localStorage.getItem('ff14-submarine-sales') || '[]');
   const submarineSuiteSales = JSON.parse(localStorage.getItem('ff14-submarine-suite-sales') || '[]');
@@ -320,6 +325,7 @@ window.addEventListener('load', async () => {
     localStorage.setItem(craftScripManualStorageKey, JSON.stringify(craftScripManualExchanges));
     localStorage.setItem(leveSalesStorageKey, JSON.stringify(leveSales));
     localStorage.setItem(levePricePresetStorageKey, JSON.stringify(levePricePresets));
+    localStorage.setItem(godstonePresetStorageKey, JSON.stringify(godstonePurchasePresets));
     localStorage.setItem('ff14-submarine-stocks', JSON.stringify(submarineStocks));
     localStorage.setItem('ff14-submarine-sales', JSON.stringify(submarineSales));
     localStorage.setItem('ff14-submarine-suite-sales', JSON.stringify(submarineSuiteSales));
@@ -331,7 +337,7 @@ window.addEventListener('load', async () => {
     'ff14-770', 'ff14-material-state', 'ff14-material-purchases', 'ff14-fantasy-prices',
     'ff14-submarine-ticket-settings', 'ff14-other-material-ids', 'ff14-submarine-stocks',
     'ff14-submarine-sales', 'ff14-submarine-suite-sales', 'ff14-submarine-operations',
-    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, levePricePresetStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
+    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, levePricePresetStorageKey, godstonePresetStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
   ];
   const backupFormat = 'ff14-fantasy-backup';
   const createBackup = () => ({
@@ -1379,6 +1385,10 @@ window.addEventListener('load', async () => {
   const priceFor = tableRow => tableRow.pricePart === 'gear'
     ? (prices[tableRow.priceKey] ?? ((prices[tableRow.group+'-防具'] || 0) + (prices[tableRow.group+'-首饰'] || 0)))
     : (prices[tableRow.priceKey] || 0);
+  const salePriceInputValue = bundle => {
+    const price = bundle ? Number(priceFor(bundle)) : 0;
+    return Number.isFinite(price) && price > 0 ? String(price) : '';
+  };
   const ledgerRows = type => tableRows(type).flatMap(item => item.header ? [] : [item, ...(item.tool ? [item.tool] : [])]);
   const isCraftLog = entry => entry.autoKind === 'craft' || entry.autoKind === 'legacy-craft';
   const automaticLogs = (kind, bundle) => {
@@ -1424,17 +1434,19 @@ window.addEventListener('load', async () => {
       </main>
     </div>
     <div id="trade-market-popover" class="trade-market-popover" role="tooltip" hidden></div>
-    <dialog id="custom-sale"><form id="custom-sale-form" class="modal"><h2>自定义成交价销售</h2><label>套装 / 分项<select id="custom-row"></select></label><label>成交单价<input id="custom-price" type="number" min="0.01" step="1" required></label><button class="btn">保存销售</button></form></dialog>
+    <dialog id="custom-sale"><form id="custom-sale-form" class="modal"><h2>自定义成交价销售</h2><label>套装 / 分项<select id="custom-row"></select></label><label>成交单价<input id="custom-price" type="number" min="0" step="any" required></label><button class="btn">保存销售</button></form></dialog>
     <dialog id="price-template-dialog"><form id="price-template-form" class="modal price-form"><h2 id="price-template-title">统一调整套装价格</h2><div class="sub">保存后会同步更新当前装备类型的所有职业组；之后仍可点击单行套装价进行单独覆盖。</div><label id="price-total-label">套装总价<input id="price-template-total" type="number" min="0" step="1"></label><label>防具价格<input id="price-template-armor" type="number" min="0" step="1"></label><label>首饰价格<input id="price-template-accessory" type="number" min="0" step="1"></label><label id="price-weapon-label">武器价格<input id="price-template-weapon" type="number" min="0" step="1"></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="price-template-dialog">取消</button><button class="btn">保存统一价格</button></div></form></dialog>
     <dialog id="single-price-dialog"><form id="single-price-form" class="modal"><h2 id="single-price-title">调整套装价格</h2><label>套装价<input id="single-price-value" type="number" min="0" step="1"></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="single-price-dialog">取消</button><button class="btn">保存</button></div></form></dialog>
     <dialog id="sales-history-dialog"><div class="modal price-form"><div class="header"><div><h2 id="sales-history-title">销售记录</h2><div class="sub">仅显示当前装备类型的逐笔装备成交。</div></div><button class="btn secondary" data-close="sales-history-dialog">关闭</button></div><div id="sales-history-content"></div></div></dialog>
     <dialog id="overview-sales-dialog"><div class="modal price-form"><div class="header"><div><h2 id="overview-sales-title">销售明细</h2><div class="sub">已完成装备销售的实际成交记录。</div></div><button class="btn secondary" data-close="overview-sales-dialog">关闭</button></div><div id="overview-sales-content"></div></div></dialog>
-    <dialog id="auto-sale-dialog"><form id="auto-sale-form" class="modal"><h2>确认装备出售</h2><div id="auto-sale-summary" class="card" style="box-shadow:none;background:#f3f8f9"></div><label>实际成交单价<input id="auto-sale-price" type="number" min="0.01" step="1" required></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="auto-sale-dialog">取消</button><button class="btn">确认售卖</button></div></form></dialog>
+    <dialog id="auto-sale-dialog"><form id="auto-sale-form" class="modal"><h2>确认装备出售</h2><div id="auto-sale-summary" class="card" style="box-shadow:none;background:#f3f8f9"></div><label>实际成交单价<input id="auto-sale-price" type="number" min="0" step="any" required></label><div class="modal-actions"><button type="button" class="btn secondary" data-close="auto-sale-dialog">取消</button><button class="btn">确认售卖</button></div></form></dialog>
     <dialog id="bundle-detail-dialog"><div class="detail-modal"><div class="header"><div><div id="bundle-detail-meta" class="meta"></div><h2 id="bundle-detail-title">装备详情</h2><div class="sub">成品仅作为清单显示；成本仅统计递归展开后的基础制作素材。</div></div><button class="btn secondary" data-close="bundle-detail-dialog">关闭</button></div><div id="bundle-detail-content"></div></div></dialog>
     <dialog id="recipe-reference-dialog"><div class="modal price-form"><div class="header"><div><div id="recipe-reference-meta" class="meta">潜水艇配方参考</div><h2 id="recipe-reference-title">制作配方</h2><div class="sub">此处仅核对官方配方结构，不参与当前市场 / 兑换成本核算。</div></div><button class="btn secondary" data-close="recipe-reference-dialog">关闭</button></div><div id="recipe-reference-content"></div></div></dialog>
     <dialog id="purchase-dialog"><form id="purchase-form" class="modal price-form" novalidate><h2 id="purchase-title">记录采购</h2><label>日期<input id="purchase-date" type="date"></label><label>时间（可选）<input id="purchase-time" type="time"></label><div id="purchase-voucher-summary" class="card" style="box-shadow:none;background:#f3f8f9" hidden></div><label id="purchase-kind-label">采购方式<select id="purchase-kind"></select></label><div id="purchase-kind-hint" class="sub" style="margin:-4px 0 10px" hidden></div><div id="purchase-direct-fields"><label>购买数量<input id="purchase-quantity" type="number" min="0" step="any"></label><label>税率<select id="purchase-tax"><option value="0.05">5%</option><option value="0">0%</option></select></label><label>单价<input id="purchase-unit" type="text" inputmode="decimal" autocomplete="off"></label><label>合价（含税）<input id="purchase-total" type="text" inputmode="decimal" autocomplete="off"></label><div class="purchase-image-actions"><button id="purchase-select-image" type="button" class="btn secondary">选择图片识别</button><button id="purchase-paste-image" type="button" class="btn secondary">粘贴图片</button><div id="purchase-capture-controls" hidden><button id="purchase-capture-image" type="button" class="btn secondary">截图识别</button><label class="purchase-capture-hide"><input id="purchase-hide-window" type="checkbox" checked>截图时隐藏当前窗口</label><label>显示器 <select id="purchase-capture-display"></select></label></div></div><input id="purchase-image-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></div><div id="purchase-exchange-fields" hidden><div id="purchase-exchange-note" class="sub"></div><label>兑换次数<input id="purchase-exchange-turns" type="number" min="0" step="any"></label><label id="purchase-source-price-label">凭证单价<input id="purchase-source-price" type="text" inputmode="decimal" autocomplete="off"></label><div id="purchase-exchange-summary" class="card" style="box-shadow:none;background:#f3f8f9"></div></div><p id="purchase-error" role="alert" style="margin:12px 0 0;color:#b5423a" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" data-close="purchase-dialog">取消</button><button class="btn">保存采购</button></div></form></dialog>
     <dialog id="purchase-ocr-dialog"><div class="modal purchase-ocr-modal"><div class="header"><div><div class="meta">采购图片识别 · 仅在本机处理</div><h2 id="purchase-ocr-title">核对识别结果</h2><div class="sub">当前材料固定；每行独立入账。截图中的单价按 5% 税率计算合价。</div></div><button type="button" id="purchase-ocr-close" class="btn secondary">关闭</button></div><p id="purchase-ocr-status" class="sub" role="status"></p><div class="purchase-ocr-preview"><img id="purchase-ocr-image" alt="待识别的采购记录截图"></div><div class="table-wrap purchase-ocr-table-wrap"><table class="ledger purchase-ocr-table"><colgroup><col class="purchase-ocr-col-select"><col class="purchase-ocr-col-date"><col class="purchase-ocr-col-time"><col class="purchase-ocr-col-unit"><col class="purchase-ocr-col-quantity"><col class="purchase-ocr-col-total"><col></colgroup><thead><tr><th><label class="purchase-ocr-select-all"><input type="checkbox" id="purchase-ocr-select-all" aria-label="全选录入记录" disabled>全选</label></th><th>日期</th><th>时间</th><th>单价</th><th>数量</th><th>合价（含税）</th><th>核对提示</th></tr></thead><tbody id="purchase-ocr-rows"></tbody></table></div><p id="purchase-ocr-error" role="alert" class="status" hidden></p><div class="modal-actions"><button type="button" id="purchase-ocr-retry" class="btn secondary">换一张图片</button><button type="button" id="purchase-ocr-add" class="btn secondary">补一行</button><button type="button" id="purchase-ocr-save" class="btn">确认录入所选记录</button></div></div></dialog>
     <dialog id="purchase-manager-dialog"><div class="modal"><div class="header"><div><div id="purchase-manager-meta" class="meta">材料采购</div><h2 id="purchase-manager-title">采购价格</h2><div id="purchase-manager-average" class="sub"></div></div><div><button id="purchase-manager-add" class="btn">+ 记录采购</button> <button class="btn secondary" data-close="purchase-manager-dialog">关闭</button></div></div><div id="purchase-manager-content"></div></div></dialog>
+    <dialog id="godstone-preset-dialog"><form id="godstone-preset-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>编辑一键采购预设</h2></div><button type="button" class="btn secondary" data-close="godstone-preset-dialog">关闭</button></div><label>装备类型<select id="godstone-preset-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><label>统一采购单价（G / 个）<input id="godstone-preset-unit" type="number" min="1" step="1" required></label><label>每种材料采购数量（个）<input id="godstone-preset-quantity" type="number" min="1" step="1" required></label><p id="godstone-preset-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" data-close="godstone-preset-dialog">取消</button><button class="btn">保存预设</button></div></form></dialog>
+    <dialog id="godstone-bulk-dialog"><div class="modal godstone-bulk-modal"><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>确认一键采购</h2></div><button type="button" class="btn secondary" data-close="godstone-bulk-dialog">关闭</button></div><label class="godstone-tier-label">装备类型<select id="godstone-bulk-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><p id="godstone-bulk-summary" class="sub"></p><div id="godstone-bulk-content"></div><p id="godstone-bulk-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" id="godstone-bulk-edit">编辑预设</button><button type="button" class="btn" id="godstone-bulk-confirm">确认录入所选材料</button></div></div></dialog>
     <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div><input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden"><label>搜索材料名称或物品 ID<input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"></label><div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div><label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><div id="trade-listing-category-note" class="trade-input-reference">选择材料后自动识别来源分类。</div><label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label><div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存本机库存材料</button></div></form></dialog>
     <dialog id="trade-quantity-dialog"><form id="trade-quantity-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改库存组数</h2><div id="trade-quantity-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-quantity-dialog">关闭</button></div><input id="trade-quantity-id" type="hidden"><label>组数<input id="trade-quantity-groups" type="number" min="1" step="1" required></label><p id="trade-quantity-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存组数</button></div></form></dialog>
     <dialog id="trade-unit-price-dialog"><form id="trade-unit-price-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改单价</h2><div id="trade-unit-price-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-unit-price-dialog">关闭</button></div><input id="trade-unit-price-id" type="hidden"><label>单价（G / 个）<input id="trade-unit-price-value" type="number" min="0.01" step="1" required></label><p id="trade-unit-price-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存单价</button></div></form></dialog>
@@ -1791,6 +1803,16 @@ window.addEventListener('load', async () => {
   const basicKind = material => craftScripRoutesFor(material.uid).length
     ? '能工巧匠工票兑换'
     : sourceKinds(material, 'equipment')[0] || baseMaterials.k?.[String(material.uid)] || '常规采集品';
+  const godstoneMaterialsForTier = tier => {
+    if (!['770', '750'].includes(String(tier))) return [];
+    const ids = new Set();
+    data.r.filter(recipe => String(recipe.t) === String(tier)).forEach(recipe => {
+      baseIngredients(recipe).forEach(({ material }) => {
+        if (material && basicKind(material) === '神典石材料') ids.add(String(material.uid));
+      });
+    });
+    return data.m.filter(material => ids.has(String(material.uid))).sort((left, right) => Number(left.uid) - Number(right.uid));
+  };
   // 潜水艇推荐材料按业务约定的单一主分类显示；同一物品的其它获取途径保留为备注。
   const submarineKindPriority = ['NPC 购买材料', '常规采集品', '军票兑换', '薰衣草/风茄兑换', '天穹票兑换', '限时采集品', '怪物掉落', '潜水艇携带材料'];
   const submarineKind = material => {
@@ -2143,7 +2165,7 @@ window.addEventListener('load', async () => {
       return;
     }
     const materials = guideMaterials();
-    const materialTable = list => `<div class="guide-material-grid">${list.map(material => {
+    const materialTable = (list, extra = '') => `<div class="guide-material-grid">${list.map(material => {
       const sourceAware = state.basicCategory === 'submarine' || state.basicCategory === 'leve';
       const choice = state.basicCategory === 'leve' ? leveGuideChoice(material.uid) : sourceAware ? submarineSourceChoice(material) : null;
       const recommendation = sourceAware && (state.basicCategory === 'leve'
@@ -2159,7 +2181,7 @@ window.addEventListener('load', async () => {
         ? `<button class="bundle-link" ${detailAttribute}="${material.uid}">${name}${recommendation}</button>`
         : `${name}${recommendation}`;
       return `<article class="guide-material-card" data-guide-material-row="${state.basicCategory}:${material.uid}"><div class="guide-material-card-title">${label}</div><dl class="guide-material-prices"><div><dt>市场价格参考</dt><dd>${marketPriceLabel(material)}</dd></div><div><dt>采购平均价</dt><dd>${purchaseAverage(material) ? money(purchaseAverage(material)) : '未采购'}</dd></div></dl><button class="btn secondary guide-material-purchase" data-purchase="${material.id}">采购价格</button></article>`;
-    }).join('') || '<div class="empty">暂无材料</div>'}</div>`;
+    }).join('') || '<div class="empty">暂无材料</div>'}${extra}</div>`;
     // “其他材料”搜索结果仍需要显示已有归属；普通分类卡片不再计算或展示该信息。
     const membershipTags = material => materialMembership(material).map(label => `<span class="material-tag">${label}</span>`).join('') || '<span class="meta">未添加</span>';
     const npcTable = (list, scope = 'submarine') => `<div class="table-wrap"><table class="ledger npc-material-table"><thead><tr><th>材料</th><th>NPC 售卖价</th><th>市场价格参考</th><th>采购平均价</th><th>自制价</th><th>购买渠道</th><th>记录采购</th></tr></thead><tbody>${list.map(material => {
@@ -2178,7 +2200,8 @@ window.addEventListener('load', async () => {
     }).join('') || '<tr><td colspan="7" class="empty">暂无 NPC 固定材料</td></tr>'}</tbody></table></div>`;
     const categoryTables = state.basicCategory === 'equipment' ? ['常规采集品', '限时采集品', '灵砂', '神典石材料', '怪物掉落', '能工巧匠工票兑换'].map(kind => {
       const list = materials.filter(material => basicKind(material) === kind), key = 'equipment-' + kind;
-      if (kind !== '能工巧匠工票兑换') return `<details class="material-category" data-material-category="${key}" ${state.guideCategories[key] ? 'open' : ''}><summary>${kind}<span>${list.length} 项 · 点击展开</span></summary>${state.guideCategories[key] ? materialTable(list) : ''}</details>`;
+      const godstoneAction = kind === '神典石材料' ? `<article class="guide-material-card godstone-action-card"><b>神典石材料一键采购</b><label class="godstone-card-tier-label" for="godstone-card-tier">装备类型<select id="godstone-card-tier"><option value="770" ${godstoneActiveTier === '770' ? 'selected' : ''}>战职 770</option><option value="750" ${godstoneActiveTier === '750' ? 'selected' : ''}>生产采集 750</option></select></label><div class="godstone-action-buttons"><button type="button" class="btn secondary" id="godstone-edit-preset">编辑预设</button><button type="button" class="btn" id="godstone-open-bulk">一键采购</button></div></article>` : '';
+      if (kind !== '能工巧匠工票兑换') return `<details class="material-category" data-material-category="${key}" ${state.guideCategories[key] ? 'open' : ''}><summary>${kind}<span>${list.length} 项 · 点击展开</span></summary>${state.guideCategories[key] ? materialTable(list, godstoneAction) : ''}</details>`;
       return `<details class="material-category" data-material-category="${key}" ${state.guideCategories[key] ? 'open' : ''}><summary>${kind}<span>${list.length} 项 · 点击展开</span></summary>${state.guideCategories[key] ? materialTable(list) : ''}</details>`;
     }).join('') : '';
     const craftScripMaterialTable = (ticket, list = craftScripExchangeMaterials(ticket), emptyText = '此票种暂无已收录兑换材料。') => {
@@ -2295,6 +2318,12 @@ window.addEventListener('load', async () => {
       const material = data.m.find(item => item.id === button.dataset.purchase);
       if (material) openPurchaseManager(material);
     });
+    const godstoneCardTier = root.querySelector('#godstone-card-tier');
+    if (godstoneCardTier) godstoneCardTier.onchange = () => selectGodstoneTier(godstoneCardTier.value);
+    const godstoneEditPreset = root.querySelector('#godstone-edit-preset');
+    if (godstoneEditPreset) godstoneEditPreset.onclick = () => openGodstonePresetDialog(godstoneCardTier.value);
+    const godstoneOpenBulk = root.querySelector('#godstone-open-bulk');
+    if (godstoneOpenBulk) godstoneOpenBulk.onclick = () => openGodstoneBulkDialog(godstoneCardTier.value);
     root.querySelectorAll('[data-basic-category]').forEach(button => {
       button.onclick = () => {
         const category = button.dataset.basicCategory;
@@ -2378,6 +2407,108 @@ window.addEventListener('load', async () => {
     root.querySelectorAll('[data-craft-scrip-detail]').forEach(button => button.onclick = () => openCraftScripExchangeDetail(button.dataset.craftScripDetail));
     root.querySelectorAll('[data-craft-collectible-detail]').forEach(button => button.onclick = () => openCraftScripCollectibleDetail(button.dataset.craftCollectibleDetail));
     maybeRefreshMarket();
+  }
+  let godstoneActiveTier = '770';
+  let godstoneReturnToBulk = false;
+  let godstoneBulkSelections = {};
+  let godstoneBulkSaving = false;
+  function selectGodstoneTier(tier) {
+    godstoneActiveTier = ['770', '750'].includes(String(tier)) ? String(tier) : '770';
+    const cardTier = document.querySelector('#godstone-card-tier');
+    if (cardTier) cardTier.value = godstoneActiveTier;
+  }
+  const validGodstonePreset = preset => Number.isSafeInteger(Number(preset?.unitPrice)) && Number(preset.unitPrice) > 0
+    && Number.isSafeInteger(Number(preset?.quantity)) && Number(preset.quantity) > 0;
+  function saveGodstonePreset(tier, unitPrice, quantity) {
+    if (!['770', '750'].includes(String(tier)) || !validGodstonePreset({ unitPrice, quantity })) throw new Error('单价和数量都必须是大于 0 的整数。');
+    if (!Number.isSafeInteger(unitPrice * quantity)) throw new Error('单种材料合价过大，请调低单价或数量。');
+    const next = { ...godstonePurchasePresets, [tier]: { unitPrice, quantity } };
+    localStorage.setItem(godstonePresetStorageKey, JSON.stringify(next));
+    godstonePurchasePresets = next;
+  }
+  function showGodstoneError(id, message) {
+    const error = document.querySelector(id);
+    error.textContent = message;
+    error.hidden = !message;
+  }
+  function fillGodstonePresetEditor() {
+    const preset = godstonePurchasePresets[godstoneActiveTier];
+    document.querySelector('#godstone-preset-tier').value = godstoneActiveTier;
+    document.querySelector('#godstone-preset-unit').value = preset?.unitPrice ?? '';
+    document.querySelector('#godstone-preset-quantity').value = preset?.quantity ?? '';
+    showGodstoneError('#godstone-preset-error', '');
+  }
+  function openGodstonePresetDialog(tier = godstoneActiveTier, returnToBulk = false) {
+    selectGodstoneTier(tier);
+    godstoneReturnToBulk = returnToBulk;
+    fillGodstonePresetEditor();
+    document.querySelector('#godstone-preset-dialog').showModal();
+  }
+  function renderGodstoneBulkDialog() {
+    const tier = godstoneActiveTier;
+    const materials = godstoneMaterialsForTier(tier);
+    const preset = godstonePurchasePresets[tier];
+    const ready = validGodstonePreset(preset);
+    if (!godstoneBulkSelections[tier]) godstoneBulkSelections[tier] = new Set(materials.map(material => String(material.uid)));
+    const selected = godstoneBulkSelections[tier];
+    document.querySelector('#godstone-bulk-tier').value = tier;
+    document.querySelector('#godstone-bulk-summary').textContent = ready
+      ? `每种材料 ${preset.quantity} 个 × ${preset.unitPrice} G / 个；只读市场价供参考，实际入账不额外加税。`
+      : `尚未设置 ${tier} 材料的统一采购单价与数量，请先编辑预设。`;
+    document.querySelector('#godstone-bulk-content').innerHTML = materials.length
+      ? `<div class="table-wrap godstone-bulk-table-wrap"><table class="ledger godstone-bulk-table"><thead><tr><th>录入</th><th>材料</th><th>市场参考价</th><th>预设单价</th><th>数量</th><th>合价</th></tr></thead><tbody>${materials.map(material => `<tr><td><input type="checkbox" data-godstone-select="${material.uid}" aria-label="录入材料 ${material.uid}" ${selected.has(String(material.uid)) ? 'checked' : ''}></td><td class="label">${itemLabelMarkup(material.uid, material.n)}</td><td>${marketPriceLabel(material)}</td><td>${ready ? money(preset.unitPrice) : '未设置'}</td><td>${ready ? preset.quantity : '—'}</td><td>${ready ? money(Number(preset.quantity) * Number(preset.unitPrice)) : '—'}</td></tr>`).join('')}</tbody></table></div><p class="godstone-bulk-total">已选 ${materials.filter(material => selected.has(String(material.uid))).length} 项 · 合计 <b>${ready ? money(materials.filter(material => selected.has(String(material.uid))).length * Number(preset.quantity) * Number(preset.unitPrice)) : '—'}</b></p>`
+      : `<p class="status">${tier} 档位没有可采购的神典石材料，请检查当前装备配方资料。</p>`;
+    document.querySelector('#godstone-bulk-confirm').disabled = !ready || !materials.length;
+    document.querySelectorAll('[data-godstone-select]').forEach(input => input.onchange = () => {
+      if (input.checked) selected.add(input.dataset.godstoneSelect);
+      else selected.delete(input.dataset.godstoneSelect);
+      showGodstoneError('#godstone-bulk-error', '');
+      const count = materials.filter(material => selected.has(String(material.uid))).length;
+      document.querySelector('.godstone-bulk-total').innerHTML = `已选 ${count} 项 · 合计 <b>${ready ? money(count * Number(preset.quantity) * Number(preset.unitPrice)) : '—'}</b>`;
+    });
+    showGodstoneError('#godstone-bulk-error', '');
+  }
+  function openGodstoneBulkDialog(tier = godstoneActiveTier) {
+    selectGodstoneTier(tier);
+    godstoneBulkSelections = {};
+    renderGodstoneBulkDialog();
+    document.querySelector('#godstone-bulk-dialog').showModal();
+  }
+  function confirmGodstoneBulkPurchase() {
+    const dialog = document.querySelector('#godstone-bulk-dialog');
+    if (!dialog.open || godstoneBulkSaving) return;
+    const tier = godstoneActiveTier, preset = godstonePurchasePresets[tier];
+    const materials = godstoneMaterialsForTier(tier);
+    const selected = materials.filter(material => godstoneBulkSelections[tier]?.has(String(material.uid)));
+    const fail = message => showGodstoneError('#godstone-bulk-error', message);
+    if (!validGodstonePreset(preset)) return fail('请先保存当前档位的有效预设。');
+    if (!selected.length) return fail('请至少勾选一种材料。');
+    const unitPrice = Number(preset.unitPrice), quantity = Number(preset.quantity), total = unitPrice * quantity;
+    if (!Number.isSafeInteger(total) || !Number.isSafeInteger(total * selected.length)) return fail('采购合价过大，请调低单价或数量。');
+    if (selected.some(material => !data.m.some(item => item.id === material.id))) return fail('所选材料已不存在，请重新打开一键采购。');
+    const stamp = Date.now();
+    const entries = selected.map((material, index) => ({
+      id: `godstone-purchase-${stamp}-${index}-${Math.random().toString(16).slice(2)}`,
+      materialId: material.id, date: today(), quantity, unitPrice, total, tax: 0
+    }));
+    const previousStorage = new Map(backupStorageKeys.map(key => [key, localStorage.getItem(key)]));
+    godstoneBulkSaving = true;
+    document.querySelector('#godstone-bulk-confirm').disabled = true;
+    purchases.unshift(...entries);
+    try { refreshNpcRecommendations(); save(); }
+    catch (error) {
+      purchases.splice(0, entries.length);
+      godstoneBulkSaving = false;
+      document.querySelector('#godstone-bulk-confirm').disabled = false;
+      try {
+        previousStorage.forEach((value, key) => value === null ? localStorage.removeItem(key) : localStorage.setItem(key, value));
+        refreshNpcRecommendations();
+      } catch (restoreError) { return fail(`保存失败，自动恢复账本也失败：${restoreError.message || restoreError}。请先不要继续录入，并导出账本核对。`); }
+      return fail(`保存失败，原账本已保留：${error.message || error}`);
+    }
+    godstoneBulkSaving = false;
+    dialog.close();
+    renderGuide();
   }
   function openCraftScripExchangeDetail(uid) {
     const material = data.m.find(item => String(item.uid) === String(uid));
@@ -4330,7 +4461,7 @@ window.addEventListener('load', async () => {
     const missingPrices = plan.missing;
     const costOptions = { reconcile: false };
     const costSummary = `<section class="sales-history equipment-cost-summary"><div class="history-head"><div><h3>装备制作成本构成</h3><div class="sub">装备一律按完整配方自制到底：基础原料成本与成品清单成本一致。</div></div></div><div class="cards"><div class="card"><small>基础原料成本</small><b>${money(plan.basicTotal)}</b></div><div class="card"><small>装备制作总成本</small><b>${money(plan.total)}</b></div></div></section>`;
-    document.querySelector('#bundle-detail-content').innerHTML = `${incomplete.length ? `<div class="status">基础配方不完整：${incomplete.join('、')}。该套装不可制作入账。</div>` : ''}${missingPrices.length ? `<div class="status">以下材料未获取单价：${missingPrices.join('、')}。请刷新市场价或添加采购记录后再制作。</div>` : ''}<div class="detail-columns"><section class="detail-column"><h3>成品清单</h3>${costTable(plan.finished, '成品清单总成本', plan.total, costOptions)}</section><section class="detail-column"><h3>制作素材：直接</h3>${costTable(plan.direct, '直接素材实际成本', plan.direct.reduce((sum, row) => sum + row.cost, 0), costOptions)}</section><section class="detail-column"><h3>制作素材：基础</h3>${costTable(plan.basic, '基础原料实际成本', plan.basicTotal, costOptions)}</section></div>${costSummary}<section class="sales-history"><div class="history-head"><div><h3>历史销售记录</h3><div class="sub">新增与删除记录都会同步回写该职业 / 分项的成品库存。</div></div></div><form id="detail-sale-form" class="history-form"><label>销售日期<input id="detail-sale-date" type="date" value="${today()}"></label><label>数量<input id="detail-sale-quantity" type="number" min="1" max="${inventory(bundle)}" value="1"></label><label>成交单价<input id="detail-sale-price" type="number" min="0.01" step="1" placeholder="建议售价 ${Math.round(priceFor(bundle))} G" required></label><button class="btn" ${inventory(bundle) ? '' : 'disabled'}>+ 新增销售记录</button></form><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>日期</th><th>数量</th><th>成交额</th><th>销售成本</th><th>利润</th><th></th></tr></thead><tbody>${history.map(({ entry, index }) => `<tr><td>${entry.date}</td><td>${entry.q}</td><td>${money(entry.amount)}</td><td>${money(entry.cost)}</td><td class="profit">${money(entry.profit)}</td><td><button class="btn secondary" data-delete-sale="${index}">删除</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无销售记录</td></tr>'}</tbody></table></div></section>`;
+    document.querySelector('#bundle-detail-content').innerHTML = `${incomplete.length ? `<div class="status">基础配方不完整：${incomplete.join('、')}。该套装不可制作入账。</div>` : ''}${missingPrices.length ? `<div class="status">以下材料未获取单价：${missingPrices.join('、')}。请刷新市场价或添加采购记录后再制作。</div>` : ''}<div class="detail-columns"><section class="detail-column"><h3>成品清单</h3>${costTable(plan.finished, '成品清单总成本', plan.total, costOptions)}</section><section class="detail-column"><h3>制作素材：直接</h3>${costTable(plan.direct, '直接素材实际成本', plan.direct.reduce((sum, row) => sum + row.cost, 0), costOptions)}</section><section class="detail-column"><h3>制作素材：基础</h3>${costTable(plan.basic, '基础原料实际成本', plan.basicTotal, costOptions)}</section></div>${costSummary}<section class="sales-history"><div class="history-head"><div><h3>历史销售记录</h3><div class="sub">新增与删除记录都会同步回写该职业 / 分项的成品库存。</div></div></div><form id="detail-sale-form" class="history-form"><label>销售日期<input id="detail-sale-date" type="date" value="${today()}"></label><label>数量<input id="detail-sale-quantity" type="number" min="1" max="${inventory(bundle)}" value="1"></label><label>成交单价<input id="detail-sale-price" type="number" min="0" step="any" value="${salePriceInputValue(bundle)}" placeholder="请填写实际成交单价" required></label><button class="btn" ${inventory(bundle) ? '' : 'disabled'}>+ 新增销售记录</button></form><div class="table-wrap history-table"><table class="ledger"><thead><tr><th>日期</th><th>数量</th><th>成交额</th><th>销售成本</th><th>利润</th><th></th></tr></thead><tbody>${history.map(({ entry, index }) => `<tr><td>${entry.date}</td><td>${entry.q}</td><td>${money(entry.amount)}</td><td>${money(entry.cost)}</td><td class="profit">${money(entry.profit)}</td><td><button class="btn secondary" data-delete-sale="${index}">删除</button></td></tr>`).join('') || '<tr><td colspan="6" class="empty">暂无销售记录</td></tr>'}</tbody></table></div></section>`;
     document.querySelector('#detail-sale-form').onsubmit = event => {
       event.preventDefault();
       try {
@@ -4418,9 +4549,9 @@ window.addEventListener('load', async () => {
   function openAutoSaleConfirm(bundle) {
     state.pendingAutoSale = bundle.id;
     const price = priceFor(bundle), cost = unitCost(bundle);
-    document.querySelector('#auto-sale-price').value = '';
-    document.querySelector('#auto-sale-price').placeholder = price ? `建议售价 ${Math.round(price)} G` : '请填写实际成交单价';
-    document.querySelector('#auto-sale-summary').innerHTML = `<b>${bundle.label}</b><div class="meta" style="margin-top:8px">出售 1 套；请填写实际成交单价。</div><div style="margin-top:10px">建议售价 ${money(price)} · 成本 ${money(cost)} · 预计利润（按建议售价）${money(price - cost)} · 当前库存 ${inventory(bundle)}</div>`;
+    document.querySelector('#auto-sale-price').value = salePriceInputValue(bundle);
+    document.querySelector('#auto-sale-price').placeholder = '请填写实际成交单价';
+    document.querySelector('#auto-sale-summary').innerHTML = `<b>${bundle.label}</b><div class="meta" style="margin-top:8px">出售 1 套；${Number(price) > 0 ? '已填入套装价，确认前可以修改成交价。' : '套装价为 0，请填写实际成交单价。'}</div><div style="margin-top:10px">建议售价 ${money(price)} · 成本 ${money(cost)} · 预计利润（按建议售价）${money(price - cost)} · 当前库存 ${inventory(bundle)}</div>`;
     document.querySelector('#auto-sale-dialog').showModal();
   }
   function changeBundle(action, bundle) {
@@ -4472,7 +4603,7 @@ window.addEventListener('load', async () => {
     select.innerHTML = rows.map(item => `<option value="${item.id}">${item.group} · ${item.label}（库存 ${inventory(item)}）</option>`).join('');
     const update = () => {
       const active = rows.find(item => item.id === select.value);
-      document.querySelector('#custom-price').value = priceFor(active);
+      document.querySelector('#custom-price').value = salePriceInputValue(active);
     };
     select.onchange = update; update();
     document.querySelector('#custom-sale').showModal();
@@ -4831,6 +4962,29 @@ window.addEventListener('load', async () => {
     }
   });
   document.querySelectorAll('[data-close]').forEach(button => button.onclick = () => document.querySelector('#' + button.dataset.close).close());
+  document.querySelector('#godstone-preset-tier').onchange = event => {
+    selectGodstoneTier(event.target.value);
+    fillGodstonePresetEditor();
+  };
+  document.querySelector('#godstone-preset-form').onsubmit = event => {
+    event.preventDefault();
+    const unitPrice = Number(document.querySelector('#godstone-preset-unit').value);
+    const quantity = Number(document.querySelector('#godstone-preset-quantity').value);
+    try { saveGodstonePreset(godstoneActiveTier, unitPrice, quantity); }
+    catch (error) { return showGodstoneError('#godstone-preset-error', error.message || '预设保存失败。'); }
+    document.querySelector('#godstone-preset-dialog').close();
+    if (godstoneReturnToBulk) openGodstoneBulkDialog(godstoneActiveTier);
+    godstoneReturnToBulk = false;
+  };
+  document.querySelector('#godstone-bulk-tier').onchange = event => {
+    selectGodstoneTier(event.target.value);
+    renderGodstoneBulkDialog();
+  };
+  document.querySelector('#godstone-bulk-edit').onclick = () => {
+    document.querySelector('#godstone-bulk-dialog').close();
+    openGodstonePresetDialog(godstoneActiveTier, true);
+  };
+  document.querySelector('#godstone-bulk-confirm').onclick = confirmGodstoneBulkPurchase;
   document.querySelector('#craft-scrip-manual-form').onsubmit = saveCraftScripManualDialog;
   document.querySelector('#craft-scrip-manual-material').addEventListener('input', event => {
     const material = findCraftScripMaterial(event.target.value);
