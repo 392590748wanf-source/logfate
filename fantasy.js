@@ -3477,7 +3477,7 @@ window.addEventListener('load', async () => {
   const tradeCategoryLabels = { botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' };
   const tradeDisplayName = material => material?.n || material?.name || '';
   const isTradeCrystal = material => isCrystal({ n: tradeDisplayName(material) });
-  // 物品 44043 的采集记录与园艺工雇员任务均确认是园艺；修复旧版按物品类型误判为采矿的缓存。
+  // 物品 44043 的采集记录与园艺工雇员任务均确认是园艺；保留这条已核验的修正。
   const verifiedTradeGatheringJobs = { '44043': 'botanist' };
   const staticTradeCategoryCandidates = material => {
     if (isTradeCrystal(material)) return ['crystal'];
@@ -3494,7 +3494,16 @@ window.addEventListener('load', async () => {
   const sortTradeCategories = categories => [...new Set(categories || [])]
     .filter(category => tradeCategoryOrder.includes(category))
     .sort((left, right) => tradeCategoryOrder.indexOf(left) - tradeCategoryOrder.indexOf(right));
-  const tradeSourceParserVersion = 3;
+  // v3 将 Garland 的职业编号错位解释（16=采矿工、17=园艺工）；旧缓存必须重验。
+  const tradeSourceParserVersion = 4;
+  const legacyTradeVentureCategory = material => {
+    const cached = tradeSourceCache[String(material?.uid || material?.itemId || '')];
+    if (cached?.parserVersion !== 3 || !cached.verified || cached.categories?.length !== 1) return null;
+    const evidence = cached.evidence || [];
+    if (evidence.some(note => /^Garland 雇员探险：BTN(?:\b|（)/.test(note)) && cached.categories[0] === 'miner') return 'botanist';
+    if (evidence.some(note => /^Garland 雇员探险：MIN(?:\b|（)/.test(note)) && cached.categories[0] === 'botanist') return 'miner';
+    return null;
+  };
   const garlandItemSourceUrl = uid => `https://www.garlandtools.org/db/doc/item/en/3/${encodeURIComponent(uid)}.json`;
   const garlandNodeSourceUrl = uid => `https://www.garlandtools.org/db/doc/node/en/3/${encodeURIComponent(uid)}.json`;
   const garlandCoreSourceUrl = 'https://www.garlandtools.org/db/doc/core/en/3/data.json';
@@ -3536,8 +3545,8 @@ window.addEventListener('load', async () => {
     if (!venture || !jobCategory) return { categories: [], evidence: null };
     const jobs = new Set((jobCategory.jobs || []).map(Number));
     const categories = [];
-    if (jobs.has(17)) categories.push('miner');
-    if (jobs.has(18)) categories.push('botanist');
+    if (jobs.has(16)) categories.push('miner');
+    if (jobs.has(17)) categories.push('botanist');
     if (/disciple(?:s)? of (?:war|magic)|war or magic/i.test(jobCategory.name || '')) categories.push('combat');
     const resolved = sortTradeCategories(categories);
     return {
@@ -3645,9 +3654,13 @@ window.addEventListener('load', async () => {
     }
   };
   const tradeListingCategory = listing => {
-    const categories = tradeCategoryCandidates(tradeMaterial(listing?.itemId) || listing);
-    if (categories.length === 1 && tradeCategoryOrder.includes(listing?.category) && !categories.includes(listing.category)) return categories[0];
+    const material = tradeMaterial(listing?.itemId) || listing;
+    const verified = verifiedTradeGatheringJobs[String(listing?.itemId || '')];
+    if (verified && listing?.category !== verified) return verified;
+    const legacy = listing?.categoryOrigin === 'auto' ? legacyTradeVentureCategory(material) : null;
+    if (legacy && listing?.category !== legacy) return legacy;
     if (tradeCategoryOrder.includes(listing?.category)) return listing.category;
+    const categories = tradeCategoryCandidates(material);
     return categories.length === 1 ? categories[0] : 'other';
   };
   const tradeGroupSize = material => isTradeCrystal(material) || Number(material?.groupSize) === 9999 ? 9999 : 999;
@@ -3889,22 +3902,42 @@ window.addEventListener('load', async () => {
     input.select();
   };
   const revalidateTradeInventorySources = () => {
-    const targets = tradeInventory.filter(listing => {
+    const targets = new Map();
+    tradeInventory.forEach(listing => {
       const uid = String(listing.itemId || '');
-      return /^\d+$/.test(uid) && !isTradeCrystal(tradeMaterial(uid) || listing) && !state.tradeSourceAudited.has(uid);
+      if (!/^\d+$/.test(uid) || isTradeCrystal(tradeMaterial(uid) || listing) || state.tradeSourceAudited.has(uid)) return;
+      if (!targets.has(uid)) targets.set(uid, []);
+      targets.get(uid).push(listing);
     });
-    if (!targets.length) return;
-    targets.forEach(listing => state.tradeSourceAudited.add(String(listing.itemId)));
-    Promise.all(targets.map(async listing => {
-      const material = tradeMaterial(listing.itemId) || listing;
+    if (!targets.size) return;
+    let repairedLegacy = false;
+    targets.forEach((listings, uid) => {
+      state.tradeSourceAudited.add(uid);
+      const legacy = legacyTradeVentureCategory(tradeMaterial(uid) || listings[0]);
+      if (!legacy) return;
+      listings.forEach(listing => {
+        if (listing.categoryOrigin !== 'auto' || listing.category === legacy) return;
+        listing.category = legacy;
+        listing.updatedAt = new Date().toLocaleString('zh-CN');
+        repairedLegacy = true;
+      });
+    });
+    if (repairedLegacy) save();
+    Promise.all([...targets.entries()].map(async ([uid, listings]) => {
+      const material = tradeMaterial(uid) || listings[0];
       const resolution = await fetchTradeSource(material, { refresh: false });
-      if (resolution.categories.length !== 1 || (listing.categoryOrigin === 'manual' && resolution.categories.includes(listing.category))) return false;
+      if (resolution.categories.length !== 1) return false;
       const category = resolution.categories[0];
-      if (listing.category === category && listing.categoryOrigin === 'auto') return false;
-      listing.category = category;
-      listing.categoryOrigin = 'auto';
-      listing.updatedAt = new Date().toLocaleString('zh-CN');
-      return true;
+      let changed = false;
+      listings.forEach(listing => {
+        if (listing.categoryOrigin === 'manual' && verifiedTradeGatheringJobs[uid] !== category) return;
+        if (listing.category === category) return;
+        listing.category = category;
+        listing.categoryOrigin = 'auto';
+        listing.updatedAt = new Date().toLocaleString('zh-CN');
+        changed = true;
+      });
+      return changed;
     })).then(changed => {
       if (!changed.some(Boolean)) return;
       save();

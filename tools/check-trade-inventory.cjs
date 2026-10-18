@@ -265,44 +265,62 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   const sourceEnd = script.indexOf('  const tradeGroupSize =', sourceStart);
   assert.ok(sourceStart > 0 && sourceEnd > sourceStart);
   const sourceContext = vm.createContext({
-    data: { m: [{ uid: '44043', n: '珍珠草' }] },
-    materialSources: {}, retainerData: {}, tradeSourceCache: { '44043': { verified: true, parserVersion: 2, categories: ['miner'] } },
+    data: { m: [{ uid: '44043', n: '珍珠草' }, { uid: '19853', n: '葛根' }, { uid: '12539', n: '白云母' }] },
+    materialSources: {}, retainerData: {}, tradeSourceCache: {
+      '44043': { verified: true, parserVersion: 2, categories: ['miner'] },
+      '19853': { verified: true, parserVersion: 3, categories: ['miner'], evidence: ['Garland 雇员探险：BTN（Lv.65）'] },
+      '12539': { verified: true, parserVersion: 3, categories: ['botanist'], evidence: ['Garland 雇员探险：MIN（Lv.55）'] }
+    },
     state: { tradeSourceLoading: new Set(), tradeSourceFailures: new Map() },
     isCrystal: () => false
   });
   vm.runInContext(script.slice(sourceStart, sourceEnd) + '\nthis.checkTradeSource = { garlandSourceCategories, tradeSourceResolution, tradeListingCategory };', sourceContext);
   const pearlGrass = { uid: '44043', n: '珍珠草' };
   assert.deepEqual(Array.from(sourceContext.checkTradeSource.tradeSourceResolution(pearlGrass).categories), ['botanist'], '珍珠草的园艺来源覆盖旧版错误采矿缓存');
+  assert.equal(sourceContext.checkTradeSource.tradeSourceResolution({ uid: '19853', n: '葛根' }).status, 'pending', 'v3 的误分类缓存不得作为新版来源结论');
   sourceContext.tradeSourceCache['999'] = { verified: true, parserVersion: 2, categories: ['miner'] };
   assert.equal(sourceContext.checkTradeSource.tradeSourceResolution({ uid: '999', n: '待重验材料' }).status, 'pending', '旧解析版本的其他来源缓存必须重新校验');
   assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '44043', category: 'miner' }), 'botanist', '旧库存立即按正确园艺分类展示');
+  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '19853', category: 'miner', categoryOrigin: 'auto' }), 'botanist', 'v3 自动误分类的园艺材料立即恢复显示');
+  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '12539', category: 'botanist', categoryOrigin: 'auto' }), 'miner', 'v3 自动误分类的采矿材料立即恢复显示');
+  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '19853', category: 'miner', categoryOrigin: 'manual' }), 'miner', '普通材料的手动分类不被缓存覆盖');
   const parseSource = sourceContext.checkTradeSource.garlandSourceCategories;
   assert.deepEqual(Array.from(parseSource({ item: { category: 48, nodes: [1001] } }, null).categories), [], '物品展示类别不能推断采矿职业');
   assert.deepEqual(Array.from(parseSource({ item: { category: 48, nodes: [1001] } }, null, [{ type: 3 }]).categories), ['botanist'], '茂盛草丛节点归园艺');
   assert.deepEqual(Array.from(parseSource({ item: { nodes: [1002] } }, null, [{ type: 0 }]).categories), ['miner'], '矿脉节点归采矿');
   assert.deepEqual(Array.from(parseSource({ item: { nodes: [1002] } }, null, [{ type: null }]).categories), [], '缺失节点类型不能误判为采矿');
-  assert.deepEqual(Array.from(parseSource({ item: { ventures: [1023] } }, { ventureIndex: { 1023: { jobs: 18, lvl: 99 } }, jobCategories: { 18: { name: 'Botanist', jobs: [18] } } }).categories), ['botanist'], '园艺工雇员任务归园艺');
+  assert.deepEqual(Array.from(parseSource({ item: { ventures: [691] } }, { ventureIndex: { 691: { jobs: 18, lvl: 65 } }, jobCategories: { 18: { name: 'BTN', jobs: [17] } } }).categories), ['botanist'], 'Garland 职业 17 是园艺工');
+  assert.deepEqual(Array.from(parseSource({ item: { ventures: [456] } }, { ventureIndex: { 456: { jobs: 17, lvl: 55 } }, jobCategories: { 17: { name: 'MIN', jobs: [16] } } }).categories), ['miner'], 'Garland 职业 16 是采矿工');
 
   const auditStart = script.indexOf('  const revalidateTradeInventorySources =');
   const auditEnd = script.indexOf('  function renderTrade() {', auditStart);
   const auditInventory = [
     { id: 'old-wrong', itemId: '44043', category: 'miner', categoryOrigin: 'manual' },
-    { id: 'valid-manual', itemId: '2', category: 'botanist', categoryOrigin: 'manual' }
+    { id: 'v3-botanical-1', itemId: '19853', category: 'miner', categoryOrigin: 'auto', groups: 90, unitPrice: 100 },
+    { id: 'v3-botanical-2', itemId: '19853', category: 'miner', categoryOrigin: 'auto' },
+    { id: 'valid-manual', itemId: '2', category: 'miner', categoryOrigin: 'manual' }
   ];
   let auditSaves = 0, auditRenders = 0;
   const auditContext = vm.createContext({
     tradeInventory: auditInventory, state: { tradeSourceAudited: new Set(), page: 'trade', tradeView: 'inventory' },
     tradeMaterial: id => ({ uid: id }), isTradeCrystal: () => false,
+    legacyTradeVentureCategory: material => material.uid === '19853' ? 'botanist' : null,
+    verifiedTradeGatheringJobs: { '44043': 'botanist' },
     fetchTradeSource: async () => ({ categories: ['botanist'] }),
     save: () => { auditSaves++; }, renderTrade: () => { auditRenders++; }, Date
   });
   vm.runInContext(script.slice(auditStart, auditEnd) + '\nthis.revalidateTradeInventorySources = revalidateTradeInventorySources;', auditContext);
   auditContext.revalidateTradeInventorySources();
+  assert.equal(auditInventory[1].category, 'botanist', '旧 v3 来源缓存先在本地修复分类');
+  assert.equal(auditInventory[2].category, 'botanist', '同种材料的多条库存同时修复');
+  assert.equal(auditInventory[1].groups, 90, '分类修复不改变库存组数');
+  assert.equal(auditInventory[1].unitPrice, 100, '分类修复不改变单价');
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(auditInventory[0].category, 'botanist', '来源重验后修复已保存的错误分类');
   assert.equal(auditInventory[0].categoryOrigin, 'auto');
-  assert.equal(auditInventory[1].categoryOrigin, 'manual', '已验证且正确的手动分类保留');
-  assert.equal(auditSaves, 1, '分类修正只保存一次');
+  assert.equal(auditInventory[3].category, 'miner', '非特例手动分类不被后台自动覆盖');
+  assert.equal(auditInventory[3].categoryOrigin, 'manual');
+  assert.equal(auditSaves, 2, '本地缓存迁移和异步重验各保存一次');
   assert.equal(auditRenders, 1);
   console.log('Trade inventory edit and popover checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
