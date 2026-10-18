@@ -24,7 +24,7 @@ window.addEventListener('load', async () => {
   Object.entries(datasetGlobals).forEach(([key, globalName]) => {
     if (externalDatasets[key] && typeof externalDatasets[key] === 'object') window[globalName] = externalDatasets[key];
   });
-  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'ledger', leveSaleView: 'orders', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
+  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeHideTotal: false, tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'ledger', leveSaleView: 'orders', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
   const data = JSON.parse(localStorage.getItem('ff14-770') || '{"m":[],"r":[],"p":{},"l":[]}');
   const mergeMaterials = (defaults, saved) => {
     const savedById = new Map((saved || []).map(item => [String(item.id), item]));
@@ -170,9 +170,8 @@ window.addEventListener('load', async () => {
       state.itemIndexLoading = false;
       if (state.page === 'guide' && state.basicCategory === 'other') renderGuide();
       else if (state.page === 'trade') {
-        renderTrade();
-        const search = document.querySelector('#trade-listing-dialog[open] #trade-listing-search');
-        search?.dispatchEvent(new Event('input'));
+        if (document.querySelector('#trade-listing-dialog[open]')) state.refreshTradeListingDialog?.();
+        else renderTrade();
       }
       else if (state.page === 'leve') renderLeve();
     };
@@ -191,7 +190,7 @@ window.addEventListener('load', async () => {
     state.itemIconIndexLoading = true;
     const script = document.createElement('script');
     script.src = 'item-icon-index.js';
-    script.onload = () => { state.itemIconIndexLoading = false; if (state.page === 'guide' && (state.basicCategory === 'other' || state.basicCategory === 'leve' || state.basicCategory === 'scrip')) renderGuide(); else if (state.page === 'trade') renderTrade(); else if (state.page === 'leve') renderLeve(); };
+    script.onload = () => { state.itemIconIndexLoading = false; if (state.page === 'guide' && (state.basicCategory === 'other' || state.basicCategory === 'leve' || state.basicCategory === 'scrip')) renderGuide(); else if (state.page === 'trade') { if (document.querySelector('#trade-listing-dialog[open]')) state.refreshTradeListingDialog?.(); else renderTrade(); } else if (state.page === 'leve') renderLeve(); };
     script.onerror = () => { state.itemIconIndexLoading = false; /* 图标仅作展示，索引加载失败不影响搜索或账本。 */ };
     document.head.append(script);
   };
@@ -1447,7 +1446,7 @@ window.addEventListener('load', async () => {
     <dialog id="purchase-manager-dialog"><div class="modal"><div class="header"><div><div id="purchase-manager-meta" class="meta">材料采购</div><h2 id="purchase-manager-title">采购价格</h2><div id="purchase-manager-average" class="sub"></div></div><div><button id="purchase-manager-add" class="btn">+ 记录采购</button> <button class="btn secondary" data-close="purchase-manager-dialog">关闭</button></div></div><div id="purchase-manager-content"></div></div></dialog>
     <dialog id="godstone-preset-dialog"><form id="godstone-preset-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>编辑一键采购预设</h2></div><button type="button" class="btn secondary" data-close="godstone-preset-dialog">关闭</button></div><label>装备类型<select id="godstone-preset-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><label>统一采购单价（G / 个）<input id="godstone-preset-unit" type="number" min="1" step="1" required></label><label>每种材料采购数量（个）<input id="godstone-preset-quantity" type="number" min="1" step="1" required></label><p id="godstone-preset-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" data-close="godstone-preset-dialog">取消</button><button class="btn">保存预设</button></div></form></dialog>
     <dialog id="godstone-bulk-dialog"><div class="modal godstone-bulk-modal"><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>确认一键采购</h2></div><button type="button" class="btn secondary" data-close="godstone-bulk-dialog">关闭</button></div><label class="godstone-tier-label">装备类型<select id="godstone-bulk-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><p id="godstone-bulk-summary" class="sub"></p><div id="godstone-bulk-content"></div><p id="godstone-bulk-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" id="godstone-bulk-edit">编辑预设</button><button type="button" class="btn" id="godstone-bulk-confirm">确认录入所选材料</button></div></div></dialog>
-    <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div><input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden"><label>搜索材料名称或物品 ID<input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"></label><div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div><label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><div id="trade-listing-category-note" class="trade-input-reference">选择材料后自动识别来源分类。</div><label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label><div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存本机库存材料</button></div></form></dialog>
+    <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div><input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden"><label for="trade-listing-search">搜索材料名称或物品 ID</label><div class="trade-search-control"><input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"><button id="trade-listing-search-button" type="button" class="btn secondary">搜索</button></div><div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div><label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><div id="trade-listing-category-note" class="trade-input-reference">选择材料后自动识别来源分类。</div><label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label><div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p><div class="modal-actions"><button id="trade-listing-delete" type="button" class="btn danger-button" hidden>删除材料</button><button class="btn">保存本机库存材料</button></div></form></dialog>
     <dialog id="trade-quantity-dialog"><form id="trade-quantity-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改库存组数</h2><div id="trade-quantity-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-quantity-dialog">关闭</button></div><input id="trade-quantity-id" type="hidden"><label>组数<input id="trade-quantity-groups" type="number" min="1" step="1" required></label><p id="trade-quantity-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存组数</button></div></form></dialog>
     <dialog id="trade-unit-price-dialog"><form id="trade-unit-price-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改单价</h2><div id="trade-unit-price-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-unit-price-dialog">关闭</button></div><input id="trade-unit-price-id" type="hidden"><label>单价（G / 个）<input id="trade-unit-price-value" type="number" min="0.01" step="1" required></label><p id="trade-unit-price-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存单价</button></div></form></dialog>
     <div id="trade-context-menu" class="trade-context-menu" role="menu" hidden></div>
@@ -3478,9 +3477,12 @@ window.addEventListener('load', async () => {
   const tradeCategoryLabels = { botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' };
   const tradeDisplayName = material => material?.n || material?.name || '';
   const isTradeCrystal = material => isCrystal({ n: tradeDisplayName(material) });
+  // 物品 44043 的采集记录与园艺工雇员任务均确认是园艺；修复旧版按物品类型误判为采矿的缓存。
+  const verifiedTradeGatheringJobs = { '44043': 'botanist' };
   const staticTradeCategoryCandidates = material => {
     if (isTradeCrystal(material)) return ['crystal'];
     const uid = String(material?.uid || material?.itemId || '');
+    if (verifiedTradeGatheringJobs[uid]) return [verifiedTradeGatheringJobs[uid]];
     const source = materialSources[uid] || {};
     const categories = new Set((source.tradeCategories || []).filter(category => tradeCategoryOrder.includes(category)));
     if (retainerData[uid]?.job === '园艺工') categories.add('botanist');
@@ -3492,8 +3494,9 @@ window.addEventListener('load', async () => {
   const sortTradeCategories = categories => [...new Set(categories || [])]
     .filter(category => tradeCategoryOrder.includes(category))
     .sort((left, right) => tradeCategoryOrder.indexOf(left) - tradeCategoryOrder.indexOf(right));
-  const tradeSourceParserVersion = 2;
+  const tradeSourceParserVersion = 3;
   const garlandItemSourceUrl = uid => `https://www.garlandtools.org/db/doc/item/en/3/${encodeURIComponent(uid)}.json`;
+  const garlandNodeSourceUrl = uid => `https://www.garlandtools.org/db/doc/node/en/3/${encodeURIComponent(uid)}.json`;
   const garlandCoreSourceUrl = 'https://www.garlandtools.org/db/doc/core/en/3/data.json';
   const garlandCoreCacheIsFresh = cache => cache?.version === garlandVentureCoreCacheVersion
     && cache?.ventureIndex && cache?.jobCategories
@@ -3543,15 +3546,18 @@ window.addEventListener('load', async () => {
     };
   };
   // item 文档给出节点、怪物和雇员编号；雇员职业则由 Garland 核心资料的 ventureIndex / jobCategories 实时解析。
-  const garlandSourceCategories = (payload, core) => {
+  const garlandSourceCategories = (payload, core, nodes = []) => {
     const item = payload?.item || {};
     const categories = [];
     const evidence = [];
-    if (Array.isArray(item.nodes) && item.nodes.length) {
-      if ([48, 54].includes(Number(item.category))) categories.push('miner');
-      if ([45, 50, 51].includes(Number(item.category))) categories.push('botanist');
-      evidence.push('采集节点');
-    }
+    // item.category 是物品展示类型，不代表采矿／园艺职业；只能根据采集节点的 type 判定。
+    nodes.forEach(node => {
+      if (node?.type == null) return;
+      const type = Number(node?.type);
+      if (type === 0 || type === 1) categories.push('miner');
+      if (type === 2 || type === 3) categories.push('botanist');
+    });
+    if (categories.length) evidence.push('Garland 采集节点职业');
     if (Array.isArray(item.mobs) && item.mobs.length) { categories.push('combat'); evidence.push('怪物掉落'); }
     (item.ventures || []).forEach(ventureId => {
       const resolved = garlandVentureCategories(ventureId, core);
@@ -3589,8 +3595,24 @@ window.addEventListener('load', async () => {
         .then(response => response.ok ? response.json() : Promise.reject(new Error(`Garland 返回 ${response.status}`)));
       const garlandItem = payload?.item;
       if (!garlandItem || Number(garlandItem.id) !== Number(uid)) throw new Error('Garland 未返回匹配的物品资料');
-      const core = Array.isArray(garlandItem.ventures) && garlandItem.ventures.length ? await loadGarlandVentureCore() : null;
-      const garlandSource = garlandSourceCategories(payload, core);
+      const core = Array.isArray(garlandItem.ventures) && garlandItem.ventures.length ? await loadGarlandVentureCore().catch(() => null) : null;
+      const ventureSource = garlandSourceCategories(payload, core);
+      const hasGatheringJob = [...ventureSource.categories, ...staticTradeCategoryCandidates(material)].some(category => category === 'miner' || category === 'botanist');
+      const nodeIds = Array.isArray(garlandItem.nodes) ? garlandItem.nodes.filter(id => /^\d+$/.test(String(id))).slice(0, 4) : [];
+      const nodes = hasGatheringJob ? [] : await Promise.all(nodeIds.map(async id => {
+        try {
+          const response = await fetch(garlandNodeSourceUrl(id), { cache: 'no-store' });
+          if (!response.ok) return null;
+          return (await response.json())?.node || null;
+        } catch { return null; }
+      }));
+      if (!hasGatheringJob && Array.isArray(garlandItem.nodes) && garlandItem.nodes.length && !nodes.some(node => node?.type != null && [0, 1, 2, 3].includes(Number(node.type)))) {
+        throw new Error('采集节点职业查询失败，不能按物品类型猜测来源');
+      }
+      if (!core && Array.isArray(garlandItem.ventures) && garlandItem.ventures.length && !hasGatheringJob && !nodeIds.length) {
+        throw new Error('雇员职业资料暂不可用，不能猜测来源');
+      }
+      const garlandSource = garlandSourceCategories(payload, core, nodes);
       const categories = sortTradeCategories([...garlandSource.categories, ...staticTradeCategoryCandidates(material)]);
       const icon = Number(garlandItem?.icon || 0);
       if (icon > 0) {
@@ -3609,7 +3631,8 @@ window.addEventListener('load', async () => {
         garlandVerified: true,
         parserVersion: tradeSourceParserVersion
       };
-      save();
+      // 来源缓存不是账本；逐项核验时不必反复序列化所有本机账目。
+      localStorage.setItem(tradeSourceCacheStorageKey, JSON.stringify(tradeSourceCache));
       return tradeSourceResolution(material);
     } catch (error) {
       state.tradeSourceFailures.set(uid, error?.message || '来源查询失败');
@@ -3617,13 +3640,14 @@ window.addEventListener('load', async () => {
     } finally {
       state.tradeSourceLoading.delete(uid);
       if (refresh && document.querySelector('#trade-listing-dialog[open] #trade-listing-item-id')?.value === uid) {
-        document.querySelector('#trade-listing-search')?.dispatchEvent(new Event('input'));
+        state.refreshTradeListingDialog?.();
       }
     }
   };
   const tradeListingCategory = listing => {
-    if (tradeCategoryOrder.includes(listing?.category)) return listing.category;
     const categories = tradeCategoryCandidates(tradeMaterial(listing?.itemId) || listing);
+    if (categories.length === 1 && tradeCategoryOrder.includes(listing?.category) && !categories.includes(listing.category)) return categories[0];
+    if (tradeCategoryOrder.includes(listing?.category)) return listing.category;
     return categories.length === 1 ? categories[0] : 'other';
   };
   const tradeGroupSize = material => isTradeCrystal(material) || Number(material?.groupSize) === 9999 ? 9999 : 999;
@@ -3707,6 +3731,9 @@ window.addEventListener('load', async () => {
     document.querySelector('#trade-listing-groups').value = listing?.groups || 1;
     document.querySelector('#trade-listing-unit-price').value = listing?.unitPrice || '';
     document.querySelector('#trade-listing-error').hidden = true;
+    const deleteButton = document.querySelector('#trade-listing-delete');
+    deleteButton.hidden = !listing;
+    deleteButton.onclick = listing ? () => { if (removeTradeListing(listing.id)) { const dialog = document.querySelector('#trade-listing-dialog'); if (dialog.open) dialog.close(); } } : null;
     const refresh = () => {
       const selectedId = document.querySelector('#trade-listing-item-id').value;
       const selected = tradeMaterial(selectedId) || (listing && String(listing.itemId) === String(selectedId) ? material : null);
@@ -3733,12 +3760,22 @@ window.addEventListener('load', async () => {
         fetchTradeSource(selectedMaterial);
       });
     };
-    document.querySelector('#trade-listing-search').oninput = event => { state.tradeSearch = event.target.value; refresh(); };
+    state.refreshTradeListingDialog = refresh;
+    const search = document.querySelector('#trade-listing-search');
+    const runSearch = () => { state.tradeSearch = search.value.trim(); if (state.tradeSearch) { loadItemIndex(); loadItemIconIndex(); } refresh(); };
+    search.oninput = () => {
+      state.tradeSearch = '';
+      if (search.value !== document.querySelector('#trade-listing-item-name').value) document.querySelector('#trade-listing-item-id').value = '';
+      refresh();
+    };
+    search.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); runSearch(); } };
+    document.querySelector('#trade-listing-search-button').onclick = runSearch;
     document.querySelector('#trade-listing-groups').oninput = refresh;
     document.querySelector('#trade-listing-unit-price').oninput = refresh;
-    loadItemIndex(); loadItemIconIndex(); refresh();
+    refresh();
     if (material) fetchTradeSource(material);
     document.querySelector('#trade-listing-dialog').showModal();
+    search.focus();
   }
   const hideTradeContextMenu = () => {
     const menu = document.querySelector('#trade-context-menu');
@@ -3748,13 +3785,16 @@ window.addEventListener('load', async () => {
   const removeTradeListing = listingId => {
     hideTradeContextMenu();
     const index = tradeInventory.findIndex(entry => entry.id === listingId);
-    if (index < 0) return;
+    if (index < 0) return false;
     const listing = tradeInventory[index];
     const material = tradeMaterial(listing.itemId) || listing;
-    if (!confirm(`删除“${tradeDisplayName(material)}”的本机库存材料？此操作仅移除交易市场清单，不会删除采购等账本记录。`)) return;
+    if (!confirm(`删除“${tradeDisplayName(material)}”的本机库存材料？此操作仅移除交易市场清单，不会删除采购等账本记录。`)) return false;
+    const dialog = document.querySelector('#trade-listing-dialog');
+    if (dialog.open && state.tradeEditingId === listingId) dialog.close();
     tradeInventory.splice(index, 1);
     save();
     renderTrade();
+    return true;
   };
   const showTradeContextMenu = (event, listing, mode) => {
     event.preventDefault();
@@ -3858,7 +3898,7 @@ window.addEventListener('load', async () => {
     Promise.all(targets.map(async listing => {
       const material = tradeMaterial(listing.itemId) || listing;
       const resolution = await fetchTradeSource(material, { refresh: false });
-      if (listing.categoryOrigin === 'manual' || resolution.categories.length !== 1) return false;
+      if (resolution.categories.length !== 1 || (listing.categoryOrigin === 'manual' && resolution.categories.includes(listing.category))) return false;
       const category = resolution.categories[0];
       if (listing.category === category && listing.categoryOrigin === 'auto') return false;
       listing.category = category;
@@ -3874,20 +3914,21 @@ window.addEventListener('load', async () => {
   function renderTrade() {
     if (activeTradePopover) hideTradeMarketPopover();
     const root = document.querySelector('#trade');
+    const showTotal = !state.tradeHideTotal;
     const categories = tradeCategoryOrder.filter(category => tradeInventory.some(listing => tradeListingCategory(listing) === category));
     const categorySections = categories.map(category => {
       const rows = tradeInventory.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId));
-      return `<section class="trade-category-section"><h2>${tradeCategoryLabels[category]}</h2><div class="table-wrap"><table class="ledger trade-ledger"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups"><col class="trade-col-total"><col class="trade-col-market"><col class="trade-col-action"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th><th>合价</th><th>市场参考价</th><th>操作</th></tr></thead><tbody>${rows.map(listing => {
+      return `<section class="trade-category-section"><h2>${tradeCategoryLabels[category]}</h2><div class="table-wrap"><table class="ledger trade-ledger${showTotal ? '' : ' trade-ledger-no-total'}"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups">${showTotal ? '<col class="trade-col-total">' : ''}<col class="trade-col-market"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th>${showTotal ? '<th>合价</th>' : ''}<th>市场参考价</th></tr></thead><tbody>${rows.map(listing => {
         const material = tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || listing.itemId, groupSize: listing.groupSize };
-        return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td><td class="price">${money(tradeTotal(listing))}</td><td>${tradeMarketReference(material)}</td><td><button type="button" class="trade-delete-button" data-trade-delete="${listing.id}" aria-label="删除这条库存材料">删除</button></td></tr>`;
+        return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td>${showTotal ? `<td class="price">${money(tradeTotal(listing))}</td>` : ''}<td>${tradeMarketReference(material)}</td></tr>`;
       }).join('')}</tbody></table></div></section>`;
     }).join('');
-    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑单价和组数；双击单价或库存组数可直接修改（回车或点击别处保存，Esc 取消），每条材料可在“操作”列删除，右键快捷编辑仍可使用。</div></div><div class="trade-actions"><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">尚未添加本机库存材料；添加后会显示对应来源分类。</div>'}`;
+    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑单价和组数；双击单价或库存组数可直接修改（回车或点击别处保存，Esc 取消），点击材料名称打开编辑后可删除该材料，右键快捷操作仍可使用。</div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">尚未添加本机库存材料；添加后会显示对应来源分类。</div>'}`;
     const recruitmentContent = `<div class="trade-unavailable"><div class="meta">交易市场 · 招募市场</div><h1>招募市场准备中</h1><p>当前版本仅保存你的本机待售材料，不会上传任何库存、采购、成本或销售数据。</p><p>开放前将接入账号、公开上架、服务器筛选、分页浏览、下架与举报机制；届时仅同步你主动公开的材料报价。</p></div>`;
     root.innerHTML = state.tradeView === 'inventory' ? inventoryContent : recruitmentContent;
+    root.querySelector('#trade-toggle-total')?.addEventListener('click', () => { state.tradeHideTotal = !state.tradeHideTotal; renderTrade(); });
     root.querySelector('#trade-add-listing')?.addEventListener('click', () => openTradeListingDialog());
     root.querySelector('#trade-refresh-market')?.addEventListener('click', () => refreshMarket(true, tradeInventory.map(listing => tradeMaterial(listing.itemId)).filter(Boolean)));
-    root.querySelectorAll('[data-trade-delete]').forEach(button => button.addEventListener('click', () => removeTradeListing(button.dataset.tradeDelete)));
     root.querySelectorAll('[data-trade-name-context]').forEach(target => {
       const listing = tradeInventory.find(entry => entry.id === target.dataset.tradeNameContext);
       target.onclick = () => { if (listing) openTradeListingDialog(listing); };
