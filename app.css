@@ -62,6 +62,10 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-ledger .item-icon { width: 18px; height: 18px; flex-basis: 18px; }
 .trade-context-target { display: inline-flex; align-items: center; min-height: 24px; border-radius: 2px; cursor: context-menu; }
 .trade-context-target:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.trade-cell-edit { cursor: text; }
+.trade-cell-edit:hover { background: var(--surface-soft); }
+.trade-cell-edit.editing { width: 100%; }
+.trade-inline-input { box-sizing: border-box; width: 100%; min-width: 0; padding: 3px 2px; border: 1px solid var(--ink); border-radius: 2px; background: #fff; color: var(--ink); font: inherit; text-align: center; }
 .trade-name-edit { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .trade-name-edit:hover { text-decoration: underline; text-underline-offset: 2px; }
 .trade-context-menu { position: fixed; z-index: 120; display: grid; min-width: 142px; padding: 4px; border: 1px solid var(--line-strong); background: #fff; box-shadow: 0 8px 26px #00000020; }
@@ -190,6 +194,7 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .guide-material-prices dt { margin: 0 0 2px; color: var(--muted); font-size: 10px; }
 .guide-material-prices dd { margin: 0; color: var(--ink); font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
 .guide-material-purchase { align-self: start; padding: 4px 6px; font-size: 11px; white-space: nowrap; }
+.guide-material-remove { align-self: start; padding: 4px 6px; font-size: 11px; white-space: nowrap; }
 .godstone-action-card { align-content: center; gap: 8px; }
 .godstone-action-card > b, .godstone-card-tier-label, .godstone-action-buttons { grid-column: 1 / -1; }
 .godstone-card-tier-label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
@@ -209,8 +214,15 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
   .guide-material-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+@media (min-width: 1400px) {
+  .app.desktop-client .guide-material-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
 @media (min-width: 1600px) {
   .guide-material-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+@media (min-width: 881px) {
+  .app .other-added-card .guide-material-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 }
 .craft-scrip-subcategories { padding: 0 12px 12px; }
 .craft-scrip-subcategory { margin-top: 10px; border: 1px solid var(--line); background: #fff; }
@@ -301,6 +313,22 @@ main { max-width: none; width: 100%; margin: 0; padding: 22px 28px 36px; }
 .basic-material-search-result b { font-size: 13px; }
 .basic-material-search-result span, .basic-material-search-result em { color: var(--muted); font-style: normal; }
 .basic-material-search-result em { grid-column: 1 / -1; margin-top: 3px; }
+.other-search-results { overflow: visible; border: 0; }
+.other-search-results .ledger { display: block; width: 100%; min-width: 0; }
+.other-search-results thead { display: none; }
+.other-search-results tbody { display: grid; gap: 8px; }
+.other-search-results tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; min-width: 0; padding: 9px; border: 1px solid var(--line); background: #fff; }
+.other-search-results td { display: block; min-width: 0; padding: 0; border: 0; white-space: normal; text-align: left; }
+.other-search-results td:nth-child(1) { grid-column: 2; grid-row: 1; color: var(--muted); font-size: 11px; }
+.other-search-results td:nth-child(1)::before { content: 'ID '; }
+.other-search-results td:nth-child(2) { grid-column: 1; grid-row: 1; overflow-wrap: anywhere; }
+.other-search-results td:nth-child(3), .other-search-results td:nth-child(4) { grid-column: 1 / -1; }
+.other-search-results td:nth-child(4) .btn { width: 100%; }
+.other-search-results .item-label { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.other-search-results td.empty { grid-column: 1 / -1; grid-row: auto; padding: 12px; text-align: center; }
+.other-search-results td.empty::before { content: none; }
+.guide-material-card.material-search-hit { position: relative; z-index: 1; outline: 3px solid #ae6800; outline-offset: -3px; background: #fff0b3; box-shadow: 0 0 0 4px #f2b544; }
+.guide-material-card.material-search-hit .guide-material-card-title { font-weight: 700; }
 .material-search-hit > td { background: #fff7c9 !important; transition: background-color .35s ease; }
 .submarine-total-profit { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-top: 20px; padding: 19px 20px 18px; border: 0; border-bottom: 1px solid var(--line-strong); border-left: 3px solid var(--positive); background: linear-gradient(90deg, #f7fbf9 0%, #fff 52%); }
 .submarine-total-profit small { color: var(--muted); font-size: 13px; }

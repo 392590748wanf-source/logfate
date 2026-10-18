@@ -35,6 +35,7 @@ const rendererHarness = (desktop = true) => {
     if (!elements.has(id)) elements.set(id, {
       open: false, disabled: false, hidden: true, textContent: '', opens: 0, events: {},
       showModal() { this.open = true; this.opens++; }, close() { this.open = false; },
+      getBoundingClientRect: () => ({ left: 100, right: 500, top: 100, bottom: 500 }),
       addEventListener(name, fn) { this.events[name] = fn; }
     });
     return elements.get(id);
@@ -105,7 +106,7 @@ const rendererHarness = (desktop = true) => {
   const downloaded = { state: 'downloaded', version: '9.9.9', readyToInstall: true, installing: false };
   const dialog = ui.element('#desktop-install-dialog');
   const confirm = ui.element('#desktop-install-confirm');
-  const clickBackdrop = () => { dialog.events.pointerdown({ target: dialog }); dialog.events.click({ target: dialog }); };
+  const clickBackdrop = () => { dialog.events.pointerdown({ target: dialog, clientX: 50, clientY: 50 }); dialog.events.click({ target: dialog, clientX: 50, clientY: 50 }); };
   ui.status(downloaded);
   assert.equal(dialog.open, true);
   assert.equal(ui.element('#desktop-update-restart').hidden, false);

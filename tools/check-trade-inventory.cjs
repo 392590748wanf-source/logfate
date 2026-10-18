@@ -84,5 +84,70 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.match(css, /@media \(max-width: 1280px\) \{\s*\.trade-category-sections \{ grid-template-columns: 1fr; \}/, '客户端小窗口改为单栏库存表');
   assert.match(script, /<th>材料<\/th><th>单价<\/th><th>库存组数<\/th><th>合价<\/th><th>市场参考价<\/th>/, '库存表保留完整五列');
   assert.match(script, /width = popover\.getBoundingClientRect\(\)\.width/, '定位采用实际悬浮框宽度');
+  assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'groups'\); \}/, '双击组数进入行内编辑');
+  assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'unitPrice'\); \}/, '双击单价进入行内编辑');
+  assert.match(css, /\.trade-inline-input \{[^}]*width: 100%/, '行内输入框适应单元格宽度');
+
+  const inlineStart = script.indexOf('  const editTradeCell =');
+  const inlineEnd = script.indexOf('  const revalidateTradeInventorySources =', inlineStart);
+  assert.ok(inlineStart > 0 && inlineEnd > inlineStart);
+  class InlineInput {
+    constructor() { this.handlers = {}; this.value = ''; }
+    setAttribute() {}
+    addEventListener(name, handler) { this.handlers[name] = handler; }
+    setCustomValidity(message) { this.validationMessage = message; }
+    reportValidity() { this.reported = true; }
+    focus() { this.focused = true; }
+    select() { this.selected = true; }
+    fire(name, event = {}) { this.handlers[name](event); }
+  }
+  class InlineTarget {
+    constructor(text) { this._text = text; this.input = null; this.classes = new Set(); this.classList = { add: name => this.classes.add(name), remove: name => this.classes.delete(name) }; }
+    get textContent() { return this._text; }
+    set textContent(text) { this._text = text; this.input = null; }
+    querySelector() { return this.input; }
+    append(input) { this.input = input; }
+    focus() { this.focused = true; }
+  }
+  let inlineSaves = 0, inlineRenders = 0;
+  const inlineContext = vm.createContext({
+    document: { createElement: () => new InlineInput() },
+    hideTradeContextMenu() {}, tradeMaterial: () => materials[0], tradeGroupSize: () => 999,
+    tradeTotal: listing => listing.groups * 1000 * listing.unitPrice,
+    save: () => { inlineSaves++; }, renderTrade: () => { inlineRenders++; }, Date, Number
+  });
+  vm.runInContext(script.slice(inlineStart, inlineEnd) + '\nthis.editTradeCell = editTradeCell;', inlineContext);
+  const inlineListing = { itemId: '1', groups: 2, groupSize: 999, unitPrice: 100, total: 200000 };
+  const priceTarget = new InlineTarget('100 G');
+  inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
+  assert.equal(priceTarget.input.value, '100');
+  priceTarget.input.value = '111.5';
+  priceTarget.input.fire('keydown', { key: 'Enter', preventDefault() {}, stopPropagation() {} });
+  assert.equal(inlineListing.unitPrice, 111.5);
+  assert.equal(inlineListing.total, 223000);
+  assert.equal(inlineSaves, 1);
+  assert.equal(inlineRenders, 1);
+
+  const groupsTarget = new InlineTarget('2 组');
+  inlineContext.editTradeCell(groupsTarget, inlineListing, 'groups');
+  groupsTarget.input.value = '3.5';
+  groupsTarget.input.fire('keydown', { key: 'Enter', preventDefault() {}, stopPropagation() {} });
+  assert.equal(inlineListing.groups, 2, '小数组数不能保存');
+  assert.equal(inlineSaves, 1);
+  assert.equal(groupsTarget.input.reported, true);
+  groupsTarget.input.fire('keydown', { key: 'Escape', preventDefault() {}, stopPropagation() {} });
+  assert.equal(groupsTarget.textContent, '2 组', 'Esc 恢复原单元格');
+  inlineContext.editTradeCell(groupsTarget, inlineListing, 'groups');
+  groupsTarget.input.value = '4';
+  groupsTarget.input.fire('blur');
+  assert.equal(inlineListing.groups, 4, '失焦时保存有效组数');
+  assert.equal(inlineListing.total, 446000);
+  assert.equal(inlineSaves, 2);
+
+  inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
+  priceTarget.input.value = '-1';
+  priceTarget.input.fire('blur');
+  assert.equal(inlineListing.unitPrice, 111.5, '无效单价失焦不写入账本');
+  assert.equal(inlineSaves, 2);
   console.log('Trade inventory edit and popover checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

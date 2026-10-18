@@ -1,7 +1,7 @@
 {
   "name": "gilfate",
   "productName": "GilFate",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "packageManager": "pnpm@11.19.0",
   "description": "FF14 装备与潜水艇成本、库存及销售利润账本",
   "author": "392590748wanf-source",
@@ -11,7 +11,7 @@
     "prestart": "node tools/prepare-ocr-assets.mjs",
     "start": "electron .",
     "precheck": "node tools/prepare-ocr-assets.mjs",
-    "check": "node --check fantasy.js && node --check purchase-ocr.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/capture-preload.cjs && node --check electron/capture-overlay.js && node --check electron/capture-geometry.cjs && node tools/check-purchase-ocr.cjs && node tools/check-purchase-capture.cjs && node tools/check-purchase-cost-priority.cjs && node tools/check-godstone-bulk.cjs && node tools/check-equipment-sale-price.cjs && node tools/check-client-updater.cjs && node tools/check-client-backup.cjs && node tools/check-data-cache.cjs && node tools/check-market-refresh-memory.cjs && node tools/check-trade-inventory.cjs && node tools/check-craft-scrip-icons.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
+    "check": "node --check fantasy.js && node --check purchase-ocr.js && node --check submarine-ledger.js && node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/capture-preload.cjs && node --check electron/capture-overlay.js && node --check electron/capture-geometry.cjs && node tools/check-dialog-backdrop.cjs && node tools/check-guide-search-highlight.cjs && node tools/check-other-materials.cjs && node tools/check-purchase-ocr.cjs && node tools/check-purchase-capture.cjs && node tools/check-purchase-cost-priority.cjs && node tools/check-godstone-bulk.cjs && node tools/check-equipment-sale-price.cjs && node tools/check-client-updater.cjs && node tools/check-client-backup.cjs && node tools/check-data-cache.cjs && node tools/check-market-refresh-memory.cjs && node tools/check-trade-inventory.cjs && node tools/check-craft-scrip-icons.cjs && node tools/check-submarine-ledger.cjs && pnpm data:check",
     "data:build": "node tools/build-data-bundle.mjs",
     "data:check": "node tools/build-data-bundle.mjs --check",
     "leves:verify": "node tools/sync-levequest-verification.mjs",
