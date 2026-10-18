@@ -3745,6 +3745,17 @@ window.addEventListener('load', async () => {
     menu.hidden = true;
     menu.innerHTML = '';
   };
+  const removeTradeListing = listingId => {
+    hideTradeContextMenu();
+    const index = tradeInventory.findIndex(entry => entry.id === listingId);
+    if (index < 0) return;
+    const listing = tradeInventory[index];
+    const material = tradeMaterial(listing.itemId) || listing;
+    if (!confirm(`删除“${tradeDisplayName(material)}”的本机库存材料？此操作仅移除交易市场清单，不会删除采购等账本记录。`)) return;
+    tradeInventory.splice(index, 1);
+    save();
+    renderTrade();
+  };
   const showTradeContextMenu = (event, listing, mode) => {
     event.preventDefault();
     const menu = document.querySelector('#trade-context-menu');
@@ -3760,10 +3771,7 @@ window.addEventListener('load', async () => {
     menu.querySelector('[data-trade-context-quantity]')?.addEventListener('click', () => openTradeQuantityDialog(listing));
     menu.querySelector('[data-trade-context-unit-price]')?.addEventListener('click', () => openTradeUnitPriceDialog(listing));
     menu.querySelector('[data-trade-context-edit]')?.addEventListener('click', () => openTradeListingDialog(listing));
-    menu.querySelector('[data-trade-context-delete]')?.addEventListener('click', () => {
-      const index = tradeInventory.findIndex(entry => entry.id === listing.id);
-      if (index >= 0 && confirm('删除这条本机库存材料？')) { tradeInventory.splice(index, 1); save(); renderTrade(); }
-    });
+    menu.querySelector('[data-trade-context-delete]')?.addEventListener('click', () => removeTradeListing(listing.id));
   };
   function openTradeQuantityDialog(listing) {
     hideTradeContextMenu();
@@ -3869,13 +3877,17 @@ window.addEventListener('load', async () => {
     const categories = tradeCategoryOrder.filter(category => tradeInventory.some(listing => tradeListingCategory(listing) === category));
     const categorySections = categories.map(category => {
       const rows = tradeInventory.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId));
-      return `<section class="trade-category-section"><h2>${tradeCategoryLabels[category]}</h2><div class="table-wrap"><table class="ledger trade-ledger"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups"><col class="trade-col-total"><col class="trade-col-market"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th><th>合价</th><th>市场参考价</th></tr></thead><tbody>${rows.map(listing => { const material = tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || listing.itemId, groupSize: listing.groupSize }; return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td><td class="price">${money(tradeTotal(listing))}</td><td>${tradeMarketReference(material)}</td></tr>`; }).join('')}</tbody></table></div></section>`;
+      return `<section class="trade-category-section"><h2>${tradeCategoryLabels[category]}</h2><div class="table-wrap"><table class="ledger trade-ledger"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups"><col class="trade-col-total"><col class="trade-col-market"><col class="trade-col-action"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th><th>合价</th><th>市场参考价</th><th>操作</th></tr></thead><tbody>${rows.map(listing => {
+        const material = tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || listing.itemId, groupSize: listing.groupSize };
+        return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td><td class="price">${money(tradeTotal(listing))}</td><td>${tradeMarketReference(material)}</td><td><button type="button" class="trade-delete-button" data-trade-delete="${listing.id}" aria-label="删除这条库存材料">删除</button></td></tr>`;
+      }).join('')}</tbody></table></div></section>`;
     }).join('');
-    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑单价和组数；双击单价或库存组数可直接修改（回车或点击别处保存，Esc 取消），右键仍可打开快捷编辑。</div></div><div class="trade-actions"><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">尚未添加本机库存材料；添加后会显示对应来源分类。</div>'}`;
+    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑单价和组数；双击单价或库存组数可直接修改（回车或点击别处保存，Esc 取消），每条材料可在“操作”列删除，右键快捷编辑仍可使用。</div></div><div class="trade-actions"><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">尚未添加本机库存材料；添加后会显示对应来源分类。</div>'}`;
     const recruitmentContent = `<div class="trade-unavailable"><div class="meta">交易市场 · 招募市场</div><h1>招募市场准备中</h1><p>当前版本仅保存你的本机待售材料，不会上传任何库存、采购、成本或销售数据。</p><p>开放前将接入账号、公开上架、服务器筛选、分页浏览、下架与举报机制；届时仅同步你主动公开的材料报价。</p></div>`;
     root.innerHTML = state.tradeView === 'inventory' ? inventoryContent : recruitmentContent;
     root.querySelector('#trade-add-listing')?.addEventListener('click', () => openTradeListingDialog());
     root.querySelector('#trade-refresh-market')?.addEventListener('click', () => refreshMarket(true, tradeInventory.map(listing => tradeMaterial(listing.itemId)).filter(Boolean)));
+    root.querySelectorAll('[data-trade-delete]').forEach(button => button.addEventListener('click', () => removeTradeListing(button.dataset.tradeDelete)));
     root.querySelectorAll('[data-trade-name-context]').forEach(target => {
       const listing = tradeInventory.find(entry => entry.id === target.dataset.tradeNameContext);
       target.onclick = () => { if (listing) openTradeListingDialog(listing); };

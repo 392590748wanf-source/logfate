@@ -53,13 +53,16 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 /* 覆盖通用 .ledger 的最小宽度，避免双栏库存表把右侧列裁掉。 */
 .ledger.trade-ledger { width: 100%; min-width: 0; table-layout: fixed; font-size: inherit; }
 .trade-ledger th, .trade-ledger td { padding: 4px 2px; white-space: normal; overflow-wrap: anywhere; word-break: normal; line-height: 1.35; }
-.trade-ledger .trade-col-material { width: 27%; }
-.trade-ledger .trade-col-unit { width: 15%; }
-.trade-ledger .trade-col-groups { width: 22%; }
-.trade-ledger .trade-col-total { width: 20%; }
-.trade-ledger .trade-col-market { width: 16%; }
+.trade-ledger .trade-col-material { width: 25%; }
+.trade-ledger .trade-col-unit { width: 13%; }
+.trade-ledger .trade-col-groups { width: 19%; }
+.trade-ledger .trade-col-total { width: 19%; }
+.trade-ledger .trade-col-market { width: 15%; }
+.trade-ledger .trade-col-action { width: 9%; }
 .trade-ledger .item-label { gap: 3px; }
 .trade-ledger .item-icon { width: 18px; height: 18px; flex-basis: 18px; }
+.trade-delete-button { min-height: 28px; padding: 3px 6px; border: 1px solid var(--negative); border-radius: 2px; background: #fff; color: var(--negative); font: inherit; font-size: 12px; cursor: pointer; }
+.trade-delete-button:hover, .trade-delete-button:focus-visible { background: #fff3f2; outline: 2px solid transparent; }
 .trade-context-target { display: inline-flex; align-items: center; min-height: 24px; border-radius: 2px; cursor: context-menu; }
 .trade-context-target:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .trade-cell-edit { cursor: text; }

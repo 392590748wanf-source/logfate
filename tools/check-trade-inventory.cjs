@@ -82,7 +82,11 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.match(css, /\.ledger\.trade-ledger \{[^}]*min-width: 0;/, '库存表必须覆盖通用账本最小宽度');
   assert.match(css, /\.trade-category-section \.table-wrap \{[^}]*overflow-x: auto;/, '狭窄窗口不应直接裁掉库存列');
   assert.match(css, /@media \(max-width: 1280px\) \{\s*\.trade-category-sections \{ grid-template-columns: 1fr; \}/, '客户端小窗口改为单栏库存表');
-  assert.match(script, /<th>材料<\/th><th>单价<\/th><th>库存组数<\/th><th>合价<\/th><th>市场参考价<\/th>/, '库存表保留完整五列');
+  assert.match(script, /<th>材料<\/th><th>单价<\/th><th>库存组数<\/th><th>合价<\/th><th>市场参考价<\/th><th>操作<\/th>/, '库存表增加操作列');
+  assert.match(script, /data-trade-delete="\$\{listing\.id\}"/, '每行显示删除按钮');
+  assert.match(script, /querySelectorAll\('\[data-trade-delete\]'\).*removeTradeListing\(button\.dataset\.tradeDelete\)/, '删除按钮调用统一删除逻辑');
+  assert.match(script, /data-trade-context-delete.*removeTradeListing\(listing\.id\)/s, '右键删除沿用相同逻辑');
+  assert.match(css, /\.trade-ledger \.trade-col-action \{ width: 9%; \}/, '操作列留有独立宽度');
   assert.match(script, /width = popover\.getBoundingClientRect\(\)\.width/, '定位采用实际悬浮框宽度');
   assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'groups'\); \}/, '双击组数进入行内编辑');
   assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'unitPrice'\); \}/, '双击单价进入行内编辑');
@@ -149,5 +153,34 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   priceTarget.input.fire('blur');
   assert.equal(inlineListing.unitPrice, 111.5, '无效单价失焦不写入账本');
   assert.equal(inlineSaves, 2);
+
+  const deleteStart = script.indexOf('  const removeTradeListing =');
+  const deleteEnd = script.indexOf('  const showTradeContextMenu =', deleteStart);
+  assert.ok(deleteStart > 0 && deleteEnd > deleteStart);
+  const deleteInventory = [
+    { id: 'target', itemId: '1', name: '云杉原木' },
+    { id: 'keep', itemId: '2', name: '绿金矿' }
+  ];
+  const purchaseLedger = [{ itemId: '1', quantity: 5 }];
+  let confirmDelete = false, deleteSaves = 0, deleteRenders = 0, prompts = 0;
+  const deleteContext = vm.createContext({
+    tradeInventory: deleteInventory, tradeMaterial: id => materials.find(item => item.uid === String(id)),
+    tradeDisplayName: item => item.n || item.name,
+    hideTradeContextMenu() {},
+    confirm: message => { prompts++; assert.match(message, /不会删除采购/); return confirmDelete; },
+    save: () => { deleteSaves++; }, renderTrade: () => { deleteRenders++; }
+  });
+  vm.runInContext(script.slice(deleteStart, deleteEnd) + '\nthis.removeTradeListing = removeTradeListing;', deleteContext);
+  deleteContext.removeTradeListing('target');
+  assert.equal(deleteInventory.length, 2, '取消删除时库存不变');
+  assert.equal(deleteSaves, 0);
+  confirmDelete = true;
+  deleteContext.removeTradeListing('target');
+  assert.deepEqual(deleteInventory.map(item => item.id), ['keep'], '只删除选中的库存记录');
+  assert.equal(deleteSaves, 1);
+  assert.equal(deleteRenders, 1);
+  assert.equal(purchaseLedger.length, 1, '采购记录不受库存删除影响');
+  deleteContext.removeTradeListing('target');
+  assert.equal(prompts, 2, '重复删除不存在记录不再弹确认');
   console.log('Trade inventory edit and popover checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
