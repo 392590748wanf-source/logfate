@@ -99,6 +99,45 @@ window.addEventListener('load', async () => {
   const tradeInventoryStorageKey = 'ff14-trade-inventory';
   let tradeInventory = JSON.parse(localStorage.getItem(tradeInventoryStorageKey) || '[]');
   if (!Array.isArray(tradeInventory)) tradeInventory = [];
+  const tradeWarehouseStorageKey = 'ff14-trade-warehouses';
+  const defaultTradeWarehouseId = 'warehouse-1';
+  const defaultTradeWarehouseSettings = () => ({
+    warehouses: [1, 2, 3].map((number, index) => ({ id: `warehouse-${number}`, name: `仓库${['一', '二', '三'][index]}` })),
+    customCategories: [], activeWarehouseId: defaultTradeWarehouseId, nextWarehouseNumber: 4
+  });
+  const normalizeTradeWarehouseSettings = value => {
+    const defaults = defaultTradeWarehouseSettings();
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return defaults;
+    const warehouses = Array.isArray(value.warehouses) ? value.warehouses.filter(entry =>
+      typeof entry?.id === 'string' && entry.id.length > 0 && typeof entry.name === 'string' && entry.name.trim()
+    ).map(entry => ({ id: entry.id, name: entry.name.trim().slice(0, 24) })) : [];
+    const uniqueWarehouses = warehouses.filter((entry, index) => warehouses.findIndex(other => other.id === entry.id) === index);
+    const customCategories = Array.isArray(value.customCategories) ? value.customCategories.filter(entry =>
+      typeof entry?.id === 'string' && entry.id.startsWith('custom:') && typeof entry.name === 'string' && entry.name.trim()
+    ).map(entry => ({ id: entry.id, name: entry.name.trim().slice(0, 24) })) : [];
+    const uniqueCategories = customCategories.filter((entry, index) => customCategories.findIndex(other => other.id === entry.id) === index);
+    const restoredWarehouses = [
+      ...defaults.warehouses.map(fallback => uniqueWarehouses.find(entry => entry.id === fallback.id) || fallback),
+      ...uniqueWarehouses.filter(entry => !defaults.warehouses.some(fallback => fallback.id === entry.id))
+    ];
+    const largestNumber = Math.max(3, ...restoredWarehouses.map(entry => Number(/^warehouse-(\d+)$/.exec(entry.id)?.[1]) || 0));
+    return {
+      warehouses: restoredWarehouses,
+      customCategories: uniqueCategories,
+      activeWarehouseId: restoredWarehouses.some(entry => entry.id === value.activeWarehouseId) ? value.activeWarehouseId : restoredWarehouses[0].id,
+      nextWarehouseNumber: Math.max(largestNumber + 1, Number(value.nextWarehouseNumber) || 4)
+    };
+  };
+  let tradeWarehouseSettings;
+  try { tradeWarehouseSettings = normalizeTradeWarehouseSettings(JSON.parse(localStorage.getItem(tradeWarehouseStorageKey) || 'null')); }
+  catch { tradeWarehouseSettings = defaultTradeWarehouseSettings(); }
+  if (tradeInventory.some(listing => !tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing.warehouseId))) {
+    tradeInventory.forEach(listing => {
+      if (!tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing.warehouseId)) listing.warehouseId = defaultTradeWarehouseId;
+    });
+    localStorage.setItem(tradeInventoryStorageKey, JSON.stringify(tradeInventory));
+  }
+  localStorage.setItem(tradeWarehouseStorageKey, JSON.stringify(tradeWarehouseSettings));
   const tradeSourceCacheStorageKey = 'ff14-trade-source-cache';
   let tradeSourceCache = JSON.parse(localStorage.getItem(tradeSourceCacheStorageKey) || '{}');
   if (!tradeSourceCache || Array.isArray(tradeSourceCache) || typeof tradeSourceCache !== 'object') tradeSourceCache = {};
@@ -318,6 +357,7 @@ window.addEventListener('load', async () => {
     localStorage.setItem('ff14-material-purchases', JSON.stringify(purchases));
     localStorage.setItem('ff14-other-material-ids', JSON.stringify(otherMaterialIds));
     localStorage.setItem(tradeInventoryStorageKey, JSON.stringify(tradeInventory));
+    localStorage.setItem(tradeWarehouseStorageKey, JSON.stringify(tradeWarehouseSettings));
     localStorage.setItem(tradeSourceCacheStorageKey, JSON.stringify(tradeSourceCache));
     if (garlandVentureCoreCache) localStorage.setItem(garlandVentureCoreCacheStorageKey, JSON.stringify(garlandVentureCoreCache));
     else localStorage.removeItem(garlandVentureCoreCacheStorageKey);
@@ -336,7 +376,7 @@ window.addEventListener('load', async () => {
     'ff14-770', 'ff14-material-state', 'ff14-material-purchases', 'ff14-fantasy-prices',
     'ff14-submarine-ticket-settings', 'ff14-other-material-ids', 'ff14-submarine-stocks',
     'ff14-submarine-sales', 'ff14-submarine-suite-sales', 'ff14-submarine-operations',
-    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, levePricePresetStorageKey, godstonePresetStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
+    'ff14-submarine-npc-materials', 'ff14-submarine-suites', 'ff14-leve-plans', leveSalesStorageKey, levePricePresetStorageKey, godstonePresetStorageKey, craftScripManualStorageKey, tradeInventoryStorageKey, tradeWarehouseStorageKey, tradeSourceCacheStorageKey, garlandVentureCoreCacheStorageKey, 'ff14-market-refreshed-at'
   ];
   const backupFormat = 'ff14-fantasy-backup';
   const createBackup = () => ({
@@ -1446,7 +1486,19 @@ window.addEventListener('load', async () => {
     <dialog id="purchase-manager-dialog"><div class="modal"><div class="header"><div><div id="purchase-manager-meta" class="meta">材料采购</div><h2 id="purchase-manager-title">采购价格</h2><div id="purchase-manager-average" class="sub"></div></div><div><button id="purchase-manager-add" class="btn">+ 记录采购</button> <button class="btn secondary" data-close="purchase-manager-dialog">关闭</button></div></div><div id="purchase-manager-content"></div></div></dialog>
     <dialog id="godstone-preset-dialog"><form id="godstone-preset-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>编辑一键采购预设</h2></div><button type="button" class="btn secondary" data-close="godstone-preset-dialog">关闭</button></div><label>装备类型<select id="godstone-preset-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><label>统一采购单价（G / 个）<input id="godstone-preset-unit" type="number" min="1" step="1" required></label><label>每种材料采购数量（个）<input id="godstone-preset-quantity" type="number" min="1" step="1" required></label><p id="godstone-preset-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" data-close="godstone-preset-dialog">取消</button><button class="btn">保存预设</button></div></form></dialog>
     <dialog id="godstone-bulk-dialog"><div class="modal godstone-bulk-modal"><div class="header"><div><div class="meta">装备推荐材料 &gt; 神典石材料</div><h2>确认一键采购</h2></div><button type="button" class="btn secondary" data-close="godstone-bulk-dialog">关闭</button></div><label class="godstone-tier-label">装备类型<select id="godstone-bulk-tier"><option value="770">战职 770</option><option value="750">生产采集 750</option></select></label><p id="godstone-bulk-summary" class="sub"></p><div id="godstone-bulk-content"></div><p id="godstone-bulk-error" class="status" role="alert" hidden></p><div class="modal-actions"><button type="button" class="btn secondary" id="godstone-bulk-edit">编辑预设</button><button type="button" class="btn" id="godstone-bulk-confirm">确认录入所选材料</button></div></div></dialog>
-    <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div><input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden"><label for="trade-listing-search">搜索材料名称或物品 ID</label><div class="trade-search-control"><input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"><button id="trade-listing-search-button" type="button" class="btn secondary">搜索</button></div><div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div><label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><div id="trade-listing-category-note" class="trade-input-reference">选择材料后自动识别来源分类。</div><label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label><div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p><div class="modal-actions"><button id="trade-listing-delete" type="button" class="btn danger-button" hidden>删除材料</button><button class="btn">保存本机库存材料</button></div></form></dialog>
+    <dialog id="trade-listing-dialog"><form id="trade-listing-form" class="modal price-form" novalidate>
+      <div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2 id="trade-listing-title">添加材料</h2><div class="sub">本机待售清单，不会变更采购、制作或潜水艇库存。</div></div><button type="button" class="btn secondary" data-close="trade-listing-dialog">关闭</button></div>
+      <input id="trade-listing-item-id" type="hidden"><input id="trade-listing-item-name" type="hidden">
+      <label for="trade-listing-search">搜索材料名称或物品 ID</label><div class="trade-search-control"><input id="trade-listing-search" autocomplete="off" placeholder="输入名称或物品 ID"><button id="trade-listing-search-button" type="button" class="btn secondary">搜索</button></div>
+      <div id="trade-listing-results" class="trade-search-results"></div><div id="trade-listing-selected" class="trade-selected-item">请先从搜索结果中选择材料。</div>
+      <label>所在仓库<select id="trade-listing-warehouse"></select></label>
+      <label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><button id="trade-listing-manage-categories" type="button" class="btn secondary trade-manage-category">＋ 新建或管理分类</button>
+      <div id="trade-listing-category-note" class="trade-input-reference">来源仅作建议，分类可自行选择。</div>
+      <label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label>
+      <div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p>
+      <div class="modal-actions"><button id="trade-listing-delete" type="button" class="btn danger-button" hidden>删除材料</button><button class="btn">保存本机库存材料</button></div>
+    </form></dialog>
+    <dialog id="trade-category-dialog"><div class="modal price-form"><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>管理自建分类</h2></div><button type="button" class="btn secondary" data-close="trade-category-dialog">关闭</button></div><p class="sub">自建分类在所有仓库共用；删除后材料转入“其他”。</p><form id="trade-category-create-form" novalidate><label>新分类名称<input id="trade-category-new-name" maxlength="24" autocomplete="off" placeholder="例如：待上架"></label><div class="modal-actions"><button class="btn" type="submit">新建分类</button></div></form><p id="trade-category-error" class="status" role="alert" hidden></p><div id="trade-category-list" class="trade-category-list"></div></div></dialog>
     <dialog id="trade-quantity-dialog"><form id="trade-quantity-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改库存组数</h2><div id="trade-quantity-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-quantity-dialog">关闭</button></div><input id="trade-quantity-id" type="hidden"><label>组数<input id="trade-quantity-groups" type="number" min="1" step="1" required></label><p id="trade-quantity-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存组数</button></div></form></dialog>
     <dialog id="trade-unit-price-dialog"><form id="trade-unit-price-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改单价</h2><div id="trade-unit-price-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-unit-price-dialog">关闭</button></div><input id="trade-unit-price-id" type="hidden"><label>单价（G / 个）<input id="trade-unit-price-value" type="number" min="0.01" step="1" required></label><p id="trade-unit-price-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存单价</button></div></form></dialog>
     <div id="trade-context-menu" class="trade-context-menu" role="menu" hidden></div>
@@ -3475,6 +3527,23 @@ window.addEventListener('load', async () => {
   const tradeMaterial = itemId => data.m.find(material => String(material.uid) === String(itemId));
   const tradeCategoryOrder = ['botanist', 'miner', 'combat', 'crystal', 'other'];
   const tradeCategoryLabels = { botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' };
+  const escapeTradeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+  const tradeCategoryIds = () => [...tradeCategoryOrder, ...tradeWarehouseSettings.customCategories.map(category => category.id)];
+  const tradeCategoryLabel = id => tradeCategoryLabels[id] || tradeWarehouseSettings.customCategories.find(category => category.id === id)?.name || '其他';
+  const tradeWarehouseId = listing => tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing?.warehouseId) ? listing.warehouseId : defaultTradeWarehouseId;
+  const tradeWarehouseNumberLabel = number => {
+    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    if (number <= 9) return digits[number];
+    if (number < 20) return `十${number % 10 ? digits[number % 10] : ''}`;
+    if (number < 100) return `${digits[Math.floor(number / 10)]}十${number % 10 ? digits[number % 10] : ''}`;
+    return String(number);
+  };
+  const validTradeName = (raw, entries, currentId = null) => {
+    const name = String(raw || '').trim();
+    if (!name || name.length > 24) throw new Error('名称须为 1–24 个字符。');
+    if (entries.some(entry => entry.id !== currentId && entry.name.toLocaleLowerCase('zh-CN') === name.toLocaleLowerCase('zh-CN'))) throw new Error('名称已存在，请换一个名称。');
+    return name;
+  };
   const tradeDisplayName = material => material?.n || material?.name || '';
   const isTradeCrystal = material => isCrystal({ n: tradeDisplayName(material) });
   // 物品 44043 的采集记录与园艺工雇员任务均确认是园艺；保留这条已核验的修正。
@@ -3655,11 +3724,12 @@ window.addEventListener('load', async () => {
   };
   const tradeListingCategory = listing => {
     const material = tradeMaterial(listing?.itemId) || listing;
+    if (listing?.categoryOrigin === 'manual' && tradeCategoryIds().includes(listing.category)) return listing.category;
     const verified = verifiedTradeGatheringJobs[String(listing?.itemId || '')];
     if (verified && listing?.category !== verified) return verified;
     const legacy = listing?.categoryOrigin === 'auto' ? legacyTradeVentureCategory(material) : null;
     if (legacy && listing?.category !== legacy) return legacy;
-    if (tradeCategoryOrder.includes(listing?.category)) return listing.category;
+    if (tradeCategoryIds().includes(listing?.category)) return listing.category;
     const categories = tradeCategoryCandidates(material);
     return categories.length === 1 ? categories[0] : 'other';
   };
@@ -3718,24 +3788,23 @@ window.addEventListener('load', async () => {
     const categories = resolution.categories;
     const sameItem = editingListing && String(editingListing.itemId) === String(material?.uid);
     const originalCategory = sameItem ? tradeListingCategory(editingListing) : null;
-    const options = [...new Set([...(originalCategory ? [originalCategory] : []), ...(categories.length ? categories : resolution.ready ? ['other'] : [])])];
-    const value = options.includes(selectedCategory) ? selectedCategory : options[0];
-    select.innerHTML = options.map(category => `<option value="${category}">${tradeCategoryLabels[category]}</option>`).join('');
+    const options = tradeCategoryIds();
+    const proposed = state.tradeCategoryTouched ? selectedCategory : originalCategory || categories[0] || 'other';
+    const value = options.includes(proposed) ? proposed : 'other';
+    select.innerHTML = options.map(category => `<option value="${escapeTradeHtml(category)}">${escapeTradeHtml(tradeCategoryLabel(category))}</option>`).join('');
     select.value = value;
-    select.disabled = !material || !resolution.ready || options.length <= 1;
-    const noteText = !material ? '选择材料后将实时查询 Garland Tools 的来源资料。'
-      : originalCategory && !resolution.ready ? `来源暂未核验，可保留“${tradeCategoryLabels[originalCategory]}”并修改单价、组数。`
-      : !resolution.ready && resolution.status === 'loading' ? '正在实时查询来源分类，请稍候…'
-      : !resolution.ready && resolution.status === 'failed' ? '来源查询失败，请重试后再保存；为避免误分类，不能暂归“其他”。'
-      : categories.length > 1 ? '该材料有多种已核验来源，请选择本条库存的归类。'
-      : categories.length ? `已按${resolution.status === 'static' ? 'Garland 已核验' : 'Garland 实时核验'}来源归为“${tradeCategoryLabels[value]}”。`
-      : '实时核验未发现园艺、采矿或战职来源，已归入“其他”。';
+    select.disabled = !material;
+    const noteText = !material ? '选择材料后可自行选择分类。'
+      : resolution.status === 'loading' ? '来源建议正在查询；不影响自行分类或保存。'
+      : categories.length ? `来源建议：${categories.map(tradeCategoryLabel).join('／')}。实际分类以你的选择为准。`
+      : '暂无来源建议；可自行选择分类或新建分类。';
     note.textContent = noteText;
   };
   function openTradeListingDialog(listing = null) {
     hideTradeContextMenu();
     state.tradeEditingId = listing?.id || null;
     state.tradeSearch = '';
+    state.tradeCategoryTouched = false;
     const material = listing ? (tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || String(listing.itemId), groupSize: listing.groupSize }) : null;
     document.querySelector('#trade-listing-title').textContent = listing ? '编辑本机库存材料' : '添加本机库存材料';
     document.querySelector('#trade-listing-item-id').value = listing?.itemId || '';
@@ -3743,6 +3812,9 @@ window.addEventListener('load', async () => {
     document.querySelector('#trade-listing-search').value = listing?.name || material?.n || '';
     document.querySelector('#trade-listing-groups').value = listing?.groups || 1;
     document.querySelector('#trade-listing-unit-price').value = listing?.unitPrice || '';
+    const warehouseSelect = document.querySelector('#trade-listing-warehouse');
+    warehouseSelect.innerHTML = tradeWarehouseSettings.warehouses.map(warehouse => `<option value="${escapeTradeHtml(warehouse.id)}">${escapeTradeHtml(warehouse.name)}</option>`).join('');
+    warehouseSelect.value = listing ? tradeWarehouseId(listing) : tradeWarehouseSettings.activeWarehouseId;
     document.querySelector('#trade-listing-error').hidden = true;
     const deleteButton = document.querySelector('#trade-listing-delete');
     deleteButton.hidden = !listing;
@@ -3768,6 +3840,7 @@ window.addEventListener('load', async () => {
         document.querySelector('#trade-listing-item-name').value = selectedMaterial.n;
         document.querySelector('#trade-listing-search').value = selectedMaterial.n;
         state.tradeSearch = '';
+        state.tradeCategoryTouched = false;
         fetchGarlandIcon(selectedMaterial.uid);
         refresh();
         fetchTradeSource(selectedMaterial);
@@ -3775,6 +3848,8 @@ window.addEventListener('load', async () => {
     };
     state.refreshTradeListingDialog = refresh;
     const search = document.querySelector('#trade-listing-search');
+    document.querySelector('#trade-listing-category').onchange = () => { state.tradeCategoryTouched = true; };
+    document.querySelector('#trade-listing-manage-categories').onclick = () => openTradeCategoryDialog(true);
     const runSearch = () => { state.tradeSearch = search.value.trim(); if (state.tradeSearch) { loadItemIndex(); loadItemIconIndex(); } refresh(); };
     search.oninput = () => {
       state.tradeSearch = '';
@@ -3790,6 +3865,82 @@ window.addEventListener('load', async () => {
     document.querySelector('#trade-listing-dialog').showModal();
     search.focus();
   }
+  const tradeCategoryNameEntries = () => [
+    ...tradeCategoryOrder.map(id => ({ id, name: tradeCategoryLabels[id] })),
+    ...tradeWarehouseSettings.customCategories
+  ];
+  const renderTradeCategoryDialog = () => {
+    const root = document.querySelector('#trade-category-list');
+    root.innerHTML = tradeWarehouseSettings.customCategories.length
+      ? tradeWarehouseSettings.customCategories.map(category => `<div class="trade-category-manage-row"><input aria-label="${escapeTradeHtml(category.name)}的名称" data-trade-category-name="${escapeTradeHtml(category.id)}" maxlength="24" value="${escapeTradeHtml(category.name)}"><button type="button" class="btn secondary" data-trade-category-rename="${escapeTradeHtml(category.id)}">保存名称</button><button type="button" class="btn secondary danger-button" data-trade-category-delete="${escapeTradeHtml(category.id)}">删除</button></div>`).join('')
+      : '<p class="sub">尚未新建分类。</p>';
+    root.querySelectorAll('[data-trade-category-rename]').forEach(button => button.onclick = () => {
+      const category = tradeWarehouseSettings.customCategories.find(entry => entry.id === button.dataset.tradeCategoryRename);
+      if (!category) return;
+      const input = root.querySelector(`[data-trade-category-name="${category.id}"]`);
+      try {
+        category.name = validTradeName(input.value, tradeCategoryNameEntries(), category.id);
+        document.querySelector('#trade-category-error').hidden = true;
+        save(); renderTrade(); renderTradeCategoryDialog();
+        if (document.querySelector('#trade-listing-dialog').open) state.refreshTradeListingDialog?.();
+      } catch (error) {
+        const message = document.querySelector('#trade-category-error');
+        message.textContent = error.message; message.hidden = false; input.focus();
+      }
+    });
+    root.querySelectorAll('[data-trade-category-delete]').forEach(button => button.onclick = () => {
+      const index = tradeWarehouseSettings.customCategories.findIndex(entry => entry.id === button.dataset.tradeCategoryDelete);
+      if (index < 0) return;
+      const category = tradeWarehouseSettings.customCategories[index];
+      const count = tradeInventory.filter(listing => listing.category === category.id).length;
+      if (!confirm(`删除分类“${category.name}”？${count} 条材料会转入“其他”，数量和单价不变。`)) return;
+      tradeInventory.forEach(listing => {
+        if (listing.category !== category.id) return;
+        listing.category = 'other';
+        listing.categoryOrigin = 'manual';
+        listing.updatedAt = new Date().toLocaleString('zh-CN');
+      });
+      tradeWarehouseSettings.customCategories.splice(index, 1);
+      save(); renderTrade(); renderTradeCategoryDialog();
+      if (document.querySelector('#trade-listing-dialog').open) {
+        const select = document.querySelector('#trade-listing-category');
+        if (select.value === category.id) { select.value = 'other'; state.tradeCategoryTouched = true; }
+        state.refreshTradeListingDialog?.();
+      }
+    });
+  };
+  const openTradeCategoryDialog = (selectNew = false) => {
+    const dialog = document.querySelector('#trade-category-dialog');
+    const input = document.querySelector('#trade-category-new-name');
+    const error = document.querySelector('#trade-category-error');
+    input.value = '';
+    error.hidden = true;
+    renderTradeCategoryDialog();
+    document.querySelector('#trade-category-create-form').onsubmit = event => {
+      event.preventDefault();
+      try {
+        const name = validTradeName(input.value, tradeCategoryNameEntries());
+        const id = `custom:${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        tradeWarehouseSettings.customCategories.push({ id, name });
+        error.hidden = true;
+        save(); renderTrade(); renderTradeCategoryDialog();
+        if (selectNew && document.querySelector('#trade-listing-dialog').open) {
+          state.tradeCategoryTouched = true;
+          const listing = tradeInventory.find(entry => entry.id === state.tradeEditingId);
+          const selectedId = document.querySelector('#trade-listing-item-id').value;
+          const material = tradeMaterial(selectedId) || (listing && String(listing.itemId) === String(selectedId)
+            ? { uid: listing.itemId, n: listing.name || String(listing.itemId), groupSize: listing.groupSize }
+            : null);
+          renderTradeCategorySelect(material, id, listing);
+          dialog.close();
+        } else { input.value = ''; input.focus(); }
+      } catch (cause) {
+        error.textContent = cause.message; error.hidden = false; input.focus();
+      }
+    };
+    if (!dialog.open) dialog.showModal();
+    input.focus();
+  };
   const hideTradeContextMenu = () => {
     const menu = document.querySelector('#trade-context-menu');
     menu.hidden = true;
@@ -3930,7 +4081,7 @@ window.addEventListener('load', async () => {
       const category = resolution.categories[0];
       let changed = false;
       listings.forEach(listing => {
-        if (listing.categoryOrigin === 'manual' && verifiedTradeGatheringJobs[uid] !== category) return;
+        if (listing.categoryOrigin === 'manual') return;
         if (listing.category === category) return;
         listing.category = category;
         listing.categoryOrigin = 'auto';
@@ -3944,24 +4095,74 @@ window.addEventListener('load', async () => {
       if (state.page === 'trade' && state.tradeView === 'inventory') renderTrade();
     });
   };
+  let tradeWarehouseClickTimer = null;
+  const renameTradeWarehouse = (button, warehouse) => {
+    const input = document.createElement('input');
+    input.className = 'trade-warehouse-rename';
+    input.type = 'text'; input.maxLength = 24; input.value = warehouse.name;
+    input.setAttribute('aria-label', `${warehouse.name}的新名称`);
+    button.replaceWith(input);
+    let finished = false;
+    const finish = saveName => {
+      if (finished) return;
+      if (saveName) {
+        try { warehouse.name = validTradeName(input.value, tradeWarehouseSettings.warehouses, warehouse.id); }
+        catch (error) { input.setCustomValidity(error.message); input.reportValidity(); input.focus(); return; }
+        save();
+      }
+      finished = true;
+      renderTrade();
+    };
+    input.addEventListener('input', () => input.setCustomValidity(''));
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+    });
+    input.addEventListener('blur', () => finish(true));
+    input.focus(); input.select();
+  };
   function renderTrade() {
+    if (tradeWarehouseClickTimer) { clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; }
     if (activeTradePopover) hideTradeMarketPopover();
     const root = document.querySelector('#trade');
     const showTotal = !state.tradeHideTotal;
-    const categories = tradeCategoryOrder.filter(category => tradeInventory.some(listing => tradeListingCategory(listing) === category));
+    const currentListings = tradeInventory.filter(listing => tradeWarehouseId(listing) === tradeWarehouseSettings.activeWarehouseId);
+    const categories = tradeCategoryIds().filter(category => currentListings.some(listing => tradeListingCategory(listing) === category));
     const categorySections = categories.map(category => {
-      const rows = tradeInventory.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId));
-      return `<section class="trade-category-section"><h2>${tradeCategoryLabels[category]}</h2><div class="table-wrap"><table class="ledger trade-ledger${showTotal ? '' : ' trade-ledger-no-total'}"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups">${showTotal ? '<col class="trade-col-total">' : ''}<col class="trade-col-market"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th>${showTotal ? '<th>合价</th>' : ''}<th>市场参考价</th></tr></thead><tbody>${rows.map(listing => {
+      const rows = currentListings.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId));
+      return `<section class="trade-category-section"><h2>${escapeTradeHtml(tradeCategoryLabel(category))}</h2><div class="table-wrap"><table class="ledger trade-ledger${showTotal ? '' : ' trade-ledger-no-total'}"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups">${showTotal ? '<col class="trade-col-total">' : ''}<col class="trade-col-market"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th>${showTotal ? '<th>合价</th>' : ''}<th>市场参考价</th></tr></thead><tbody>${rows.map(listing => {
         const material = tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || listing.itemId, groupSize: listing.groupSize };
         return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td>${showTotal ? `<td class="price">${money(tradeTotal(listing))}</td>` : ''}<td>${tradeMarketReference(material)}</td></tr>`;
       }).join('')}</tbody></table></div></section>`;
     }).join('');
-    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑单价和组数；双击单价或库存组数可直接修改（回车或点击别处保存，Esc 取消），点击材料名称打开编辑后可删除该材料，右键快捷操作仍可使用。</div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">尚未添加本机库存材料；添加后会显示对应来源分类。</div>'}`;
+    const warehouseTabs = tradeWarehouseSettings.warehouses.map(warehouse => `<button type="button" role="tab" class="trade-warehouse-tab${warehouse.id === tradeWarehouseSettings.activeWarehouseId ? ' active' : ''}" aria-selected="${warehouse.id === tradeWarehouseSettings.activeWarehouseId}" data-trade-warehouse="${escapeTradeHtml(warehouse.id)}" title="双击修改仓库名称">${escapeTradeHtml(warehouse.name)}</button>`).join('');
+    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑并移动仓库；双击单价或库存组数可直接修改，右键快捷操作仍可使用。分类可自行选择或新建。</div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-manage-categories" type="button" class="btn secondary">管理分类</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div><div class="trade-warehouse-nav"><div class="trade-warehouse-tabs" role="tablist" aria-label="库存仓库">${warehouseTabs}</div><button id="trade-add-warehouse" type="button" class="btn secondary trade-warehouse-add" aria-label="新增仓库" title="新增仓库">＋</button></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">当前仓库尚未添加材料。</div>'}`;
     const recruitmentContent = `<div class="trade-unavailable"><div class="meta">交易市场 · 招募市场</div><h1>招募市场准备中</h1><p>当前版本仅保存你的本机待售材料，不会上传任何库存、采购、成本或销售数据。</p><p>开放前将接入账号、公开上架、服务器筛选、分页浏览、下架与举报机制；届时仅同步你主动公开的材料报价。</p></div>`;
     root.innerHTML = state.tradeView === 'inventory' ? inventoryContent : recruitmentContent;
     root.querySelector('#trade-toggle-total')?.addEventListener('click', () => { state.tradeHideTotal = !state.tradeHideTotal; renderTrade(); });
     root.querySelector('#trade-add-listing')?.addEventListener('click', () => openTradeListingDialog());
-    root.querySelector('#trade-refresh-market')?.addEventListener('click', () => refreshMarket(true, tradeInventory.map(listing => tradeMaterial(listing.itemId)).filter(Boolean)));
+    root.querySelector('#trade-manage-categories')?.addEventListener('click', () => openTradeCategoryDialog());
+    root.querySelector('#trade-refresh-market')?.addEventListener('click', () => refreshMarket(true, currentListings.map(listing => tradeMaterial(listing.itemId)).filter(Boolean)));
+    root.querySelector('#trade-add-warehouse')?.addEventListener('click', () => {
+      const number = tradeWarehouseSettings.nextWarehouseNumber++;
+      const warehouse = { id: `warehouse-${number}`, name: `仓库${tradeWarehouseNumberLabel(number)}` };
+      tradeWarehouseSettings.warehouses.push(warehouse);
+      tradeWarehouseSettings.activeWarehouseId = warehouse.id;
+      save(); renderTrade();
+    });
+    root.querySelectorAll('[data-trade-warehouse]').forEach(button => {
+      const warehouse = tradeWarehouseSettings.warehouses.find(entry => entry.id === button.dataset.tradeWarehouse);
+      if (!warehouse) return;
+      button.onclick = event => {
+        if (event.detail > 1 || warehouse.id === tradeWarehouseSettings.activeWarehouseId) return;
+        const switchWarehouse = () => { tradeWarehouseSettings.activeWarehouseId = warehouse.id; save(); renderTrade(); };
+        if (tradeWarehouseClickTimer) clearTimeout(tradeWarehouseClickTimer);
+        if (event.detail === 0) switchWarehouse();
+        else tradeWarehouseClickTimer = setTimeout(switchWarehouse, 180);
+      };
+      button.ondblclick = event => { event.preventDefault(); clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; renameTradeWarehouse(button, warehouse); };
+      button.onkeydown = event => { if (event.key === 'F2') { event.preventDefault(); clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; renameTradeWarehouse(button, warehouse); } };
+    });
     root.querySelectorAll('[data-trade-name-context]').forEach(target => {
       const listing = tradeInventory.find(entry => entry.id === target.dataset.tradeNameContext);
       target.onclick = () => { if (listing) openTradeListingDialog(listing); };
@@ -4799,7 +5000,7 @@ window.addEventListener('load', async () => {
   };
   document.querySelector('#trade-listing-form').onsubmit = async event => {
     event.preventDefault();
-    const itemId = document.querySelector('#trade-listing-item-id').value, groups = Number(document.querySelector('#trade-listing-groups').value || 0), unitPrice = Number(document.querySelector('#trade-listing-unit-price').value || 0), category = document.querySelector('#trade-listing-category').value, error = document.querySelector('#trade-listing-error');
+    const itemId = document.querySelector('#trade-listing-item-id').value, groups = Number(document.querySelector('#trade-listing-groups').value || 0), unitPrice = Number(document.querySelector('#trade-listing-unit-price').value || 0), category = document.querySelector('#trade-listing-category').value, warehouseId = document.querySelector('#trade-listing-warehouse').value, error = document.querySelector('#trade-listing-error');
     const fail = (message, input) => { error.textContent = message; error.hidden = false; input?.focus(); };
     const previous = tradeInventory.find(row => row.id === state.tradeEditingId);
     const sameItem = previous && String(previous.itemId) === String(itemId);
@@ -4807,16 +5008,14 @@ window.addEventListener('load', async () => {
     if (!material) return fail('请先从搜索结果中选择材料。', document.querySelector('#trade-listing-search'));
     if (!(groups > 0) || !Number.isInteger(groups)) return fail('组数必须是大于 0 的整数。', document.querySelector('#trade-listing-groups'));
     if (!(unitPrice > 0)) return fail('请填写大于 0 的单价。', document.querySelector('#trade-listing-unit-price'));
-    const sourceResolution = tradeSourceResolution(material);
-    const categoryOptions = sourceResolution.categories;
-    const keepOriginalCategory = sameItem && category === tradeListingCategory(previous);
-    if (!sourceResolution.ready && !keepOriginalCategory) return fail('来源查询失败或仍在进行中，请重试后再保存。', document.querySelector('#trade-listing-search'));
-    if (!tradeCategoryOrder.includes(category) || (!keepOriginalCategory && categoryOptions.length && !categoryOptions.includes(category))) return fail('请选择有效的来源分类。', document.querySelector('#trade-listing-category'));
+    if (!tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === warehouseId)) return fail('请选择有效的仓库。', document.querySelector('#trade-listing-warehouse'));
+    if (!tradeCategoryIds().includes(category)) return fail('请选择有效的来源分类。', document.querySelector('#trade-listing-category'));
     const timestamp = new Date().toLocaleString('zh-CN');
-    const entry = { id: state.tradeEditingId || 'trade-' + Date.now() + '-' + Math.random().toString(16).slice(2), itemId: String(material.uid), name: material.n, category: category || 'other', categoryOrigin: keepOriginalCategory ? (previous.categoryOrigin || 'auto') : categoryOptions.length > 1 ? 'manual' : 'auto', groups, groupSize: tradeGroupSize(material), unitPrice, total: groups * tradePriceMultiplier(material) * unitPrice, createdAt: previous?.createdAt || timestamp, updatedAt: timestamp, visibility: 'local', remoteId: null, syncStatus: 'local' };
+    const entry = { id: state.tradeEditingId || 'trade-' + Date.now() + '-' + Math.random().toString(16).slice(2), itemId: String(material.uid), name: material.n, warehouseId, category, categoryOrigin: 'manual', groups, groupSize: tradeGroupSize(material), unitPrice, total: groups * tradePriceMultiplier(material) * unitPrice, createdAt: previous?.createdAt || timestamp, updatedAt: timestamp, visibility: 'local', remoteId: null, syncStatus: 'local' };
     const index = tradeInventory.findIndex(row => row.id === state.tradeEditingId);
     if (index >= 0) tradeInventory[index] = entry;
     else tradeInventory.unshift(entry);
+    tradeWarehouseSettings.activeWarehouseId = warehouseId;
     save();
     document.querySelector('#trade-listing-dialog').close();
     state.tradeEditingId = null;

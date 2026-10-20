@@ -21,7 +21,7 @@ const rendererContext = {
 };
 for (const name of [
   'leveSalesStorageKey', 'levePricePresetStorageKey', 'godstonePresetStorageKey', 'craftScripManualStorageKey',
-  'tradeInventoryStorageKey', 'tradeSourceCacheStorageKey', 'garlandVentureCoreCacheStorageKey'
+  'tradeInventoryStorageKey', 'tradeWarehouseStorageKey', 'tradeSourceCacheStorageKey', 'garlandVentureCoreCacheStorageKey'
 ]) {
   const match = rendererSource.match(new RegExp(`const ${name} = '([^']+)';`));
   assert.ok(match, `找不到前端字段 ${name}`);
@@ -76,10 +76,12 @@ vm.runInNewContext(mainSource + '\nthis.backupKeys = [...BACKUP_KEYS];', mainCon
   assert.equal(new Set(frontKeys).size, frontKeys.length, '前端备份字段不得重复');
   assert.equal(new Set(mainKeys).size, mainKeys.length, '主进程备份字段不得重复');
   assert.deepEqual(mainKeys, frontKeys, '前端备份字段与客户端主进程允许字段必须完全一致');
+  assert.ok(frontKeys.includes('ff14-trade-warehouses'), '仓库和自建分类必须纳入完整备份');
 
   for (const key of frontKeys) storage.set(key, JSON.stringify({ key, quantity: 3 }));
   const backup = front.createBackup();
   assert.equal(backup.version, 1, '沿用原备份格式');
+  assert.ok(backup.storage['ff14-trade-warehouses'], '导出包含仓库资料');
   const exportBackup = handlers.get('backup:export');
   const importBackup = handlers.get('backup:import');
   const saved = await exportBackup(null, backup);

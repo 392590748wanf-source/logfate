@@ -36,6 +36,7 @@ const BACKUP_KEYS = new Set([
   'ff14-godstone-purchase-presets',
   'ff14-craft-scrip-manual-exchanges',
   'ff14-trade-inventory',
+  'ff14-trade-warehouses',
   'ff14-trade-source-cache',
   'ff14-garland-venture-core-cache',
   'ff14-market-refreshed-at'
