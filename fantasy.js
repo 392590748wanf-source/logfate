@@ -24,7 +24,7 @@ window.addEventListener('load', async () => {
   Object.entries(datasetGlobals).forEach(([key, globalName]) => {
     if (externalDatasets[key] && typeof externalDatasets[key] === 'object') window[globalName] = externalDatasets[key];
   });
-  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeHideTotal: false, tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'ledger', leveSaleView: 'orders', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
+  const state = { page: 'home', type: null, expanded: false, submarineExpanded: false, submarineView: 'summary', submarinePartsOpen: false, guideView: 'basic', guideExpanded: false, selectedMaterial: null, basicCategory: 'equipment', craftScripTicket: 'orange', craftScripManualEditingId: null, otherSearch: '', basicMaterialSearch: '', tradeView: 'inventory', tradeSearch: '', tradeGlobalSearch: '', tradeWarehouseSearch: '', tradeHideTotal: false, tradeEditingId: null, tradeSourceLoading: new Set(), tradeSourceFailures: new Map(), tradeSourceAudited: new Set(), leveView: 'ledger', leveSaleView: 'orders', leveJob: '刻木匠', leveStart: 20, leveTarget: 100, leveDouble: false, levePlanEditing: false, leveCatalogSearch: '', leveCatalogCollapsed: {}, leveSaleDraft: null, leveGuidePlan: '', leveGuideJob: '', leveGuideStart: '', leveGuideTarget: '', equipmentGroups: {}, equipmentSections: {}, guideCategories: {}, marketRefreshing: false, marketMessage: '', equipmentCombatTier: '770', equipmentGatheringTier: '750', equipmentSummaryTiers: { combat: '770', gathering: '750' }, submarineGroups: {}, itemIndexLoading: false, itemIconIndexLoading: false, garlandIconLoading: new Set() };
   const data = JSON.parse(localStorage.getItem('ff14-770') || '{"m":[],"r":[],"p":{},"l":[]}');
   const mergeMaterials = (defaults, saved) => {
     const savedById = new Map((saved || []).map(item => [String(item.id), item]));
@@ -116,15 +116,13 @@ window.addEventListener('load', async () => {
       typeof entry?.id === 'string' && entry.id.startsWith('custom:') && typeof entry.name === 'string' && entry.name.trim()
     ).map(entry => ({ id: entry.id, name: entry.name.trim().slice(0, 24) })) : [];
     const uniqueCategories = customCategories.filter((entry, index) => customCategories.findIndex(other => other.id === entry.id) === index);
-    const restoredWarehouses = [
-      ...defaults.warehouses.map(fallback => uniqueWarehouses.find(entry => entry.id === fallback.id) || fallback),
-      ...uniqueWarehouses.filter(entry => !defaults.warehouses.some(fallback => fallback.id === entry.id))
-    ];
+    // 首次使用才创建默认仓库；已经保存的列表可以合法地删除其中任意一个默认仓库。
+    const restoredWarehouses = uniqueWarehouses.length ? uniqueWarehouses : defaults.warehouses;
     const largestNumber = Math.max(3, ...restoredWarehouses.map(entry => Number(/^warehouse-(\d+)$/.exec(entry.id)?.[1]) || 0));
     return {
       warehouses: restoredWarehouses,
       customCategories: uniqueCategories,
-      activeWarehouseId: restoredWarehouses.some(entry => entry.id === value.activeWarehouseId) ? value.activeWarehouseId : restoredWarehouses[0].id,
+      activeWarehouseId: value.activeWarehouseId === 'overview' || restoredWarehouses.some(entry => entry.id === value.activeWarehouseId) ? value.activeWarehouseId : restoredWarehouses[0].id,
       nextWarehouseNumber: Math.max(largestNumber + 1, Number(value.nextWarehouseNumber) || 4)
     };
   };
@@ -133,7 +131,7 @@ window.addEventListener('load', async () => {
   catch { tradeWarehouseSettings = defaultTradeWarehouseSettings(); }
   if (tradeInventory.some(listing => !tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing.warehouseId))) {
     tradeInventory.forEach(listing => {
-      if (!tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing.warehouseId)) listing.warehouseId = defaultTradeWarehouseId;
+      if (!tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing.warehouseId)) listing.warehouseId = tradeWarehouseSettings.warehouses[0].id;
     });
     localStorage.setItem(tradeInventoryStorageKey, JSON.stringify(tradeInventory));
   }
@@ -1495,10 +1493,11 @@ window.addEventListener('load', async () => {
       <label id="trade-listing-category-label">来源分类<select id="trade-listing-category"></select></label><button id="trade-listing-manage-categories" type="button" class="btn secondary trade-manage-category">＋ 新建或管理分类</button>
       <div id="trade-listing-category-note" class="trade-input-reference">来源仅作建议，分类可自行选择。</div>
       <label>组数<input id="trade-listing-groups" type="number" min="1" step="1" value="1" required></label><label>单价（G / 个）<input id="trade-listing-unit-price" type="number" min="1" step="1" required></label>
-      <div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p>
+      <div id="trade-listing-market-reference" class="trade-input-reference">市场参考价：请先选择材料。</div><label>备注<textarea id="trade-listing-note" rows="3" placeholder="填写材料备注，可换行"></textarea></label><div class="trade-total-preview"><span>合价</span><b id="trade-listing-total">0 G</b><small id="trade-listing-total-formula">组数 × 1000 × 单价</small></div><p id="trade-listing-error" role="alert" class="status" hidden></p>
       <div class="modal-actions"><button id="trade-listing-delete" type="button" class="btn danger-button" hidden>删除材料</button><button class="btn">保存本机库存材料</button></div>
     </form></dialog>
-    <dialog id="trade-category-dialog"><div class="modal price-form"><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>管理自建分类</h2></div><button type="button" class="btn secondary" data-close="trade-category-dialog">关闭</button></div><p class="sub">自建分类在所有仓库共用；删除后材料转入“其他”。</p><form id="trade-category-create-form" novalidate><label>新分类名称<input id="trade-category-new-name" maxlength="24" autocomplete="off" placeholder="例如：待上架"></label><div class="modal-actions"><button class="btn" type="submit">新建分类</button></div></form><p id="trade-category-error" class="status" role="alert" hidden></p><div id="trade-category-list" class="trade-category-list"></div></div></dialog>
+    <dialog id="trade-category-dialog"><div class="modal price-form"><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>管理分类</h2></div><button type="button" class="btn secondary" data-close="trade-category-dialog">关闭</button></div><p class="sub">内置分类不可修改；自建分类在所有仓库共用，删除后材料转入“其他”。</p><form id="trade-category-create-form" novalidate><label>新分类名称<input id="trade-category-new-name" maxlength="24" autocomplete="off" placeholder="例如：待上架"></label><div class="modal-actions"><button class="btn" type="submit">新建分类</button></div></form><p id="trade-category-error" class="status" role="alert" hidden></p><div id="trade-category-list" class="trade-category-list"></div></div></dialog>
+    <dialog id="trade-warehouse-dialog"><div class="modal price-form"><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>管理仓库</h2></div><button type="button" class="btn secondary" data-close="trade-warehouse-dialog">关闭</button></div><p class="sub">可修改仓库名称、添加仓库；删除非空仓库前须指定接收材料的仓库。</p><p id="trade-warehouse-error" class="status" role="alert" hidden></p><div id="trade-warehouse-manage-list" class="trade-warehouse-manage-list"></div><div class="modal-actions"><button id="trade-warehouse-create" type="button" class="btn">＋ 添加仓库</button></div><div id="trade-warehouse-delete-panel" class="trade-warehouse-delete-panel" hidden><p id="trade-warehouse-delete-summary"></p><label id="trade-warehouse-delete-target-label">将材料移入<select id="trade-warehouse-delete-target"></select></label><div class="modal-actions"><button id="trade-warehouse-delete-cancel" type="button" class="btn secondary">取消</button><button id="trade-warehouse-delete-confirm" type="button" class="btn danger-button">确认删除</button></div></div></div></dialog>
     <dialog id="trade-quantity-dialog"><form id="trade-quantity-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改库存组数</h2><div id="trade-quantity-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-quantity-dialog">关闭</button></div><input id="trade-quantity-id" type="hidden"><label>组数<input id="trade-quantity-groups" type="number" min="1" step="1" required></label><p id="trade-quantity-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存组数</button></div></form></dialog>
     <dialog id="trade-unit-price-dialog"><form id="trade-unit-price-form" class="modal price-form" novalidate><div class="header"><div><div class="meta">交易市场 · 我的库存材料</div><h2>修改单价</h2><div id="trade-unit-price-material" class="sub"></div></div><button type="button" class="btn secondary" data-close="trade-unit-price-dialog">关闭</button></div><input id="trade-unit-price-id" type="hidden"><label>单价（G / 个）<input id="trade-unit-price-value" type="number" min="0.01" step="1" required></label><p id="trade-unit-price-error" role="alert" class="status" hidden></p><div class="modal-actions"><button class="btn">保存单价</button></div></form></dialog>
     <div id="trade-context-menu" class="trade-context-menu" role="menu" hidden></div>
@@ -3528,9 +3527,9 @@ window.addEventListener('load', async () => {
   const tradeCategoryOrder = ['botanist', 'miner', 'combat', 'crystal', 'other'];
   const tradeCategoryLabels = { botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' };
   const escapeTradeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-  const tradeCategoryIds = () => [...tradeCategoryOrder, ...tradeWarehouseSettings.customCategories.map(category => category.id)];
+  const tradeCategoryIds = () => [...tradeCategoryOrder.filter(id => id !== 'other'), ...tradeWarehouseSettings.customCategories.map(category => category.id), 'other'];
   const tradeCategoryLabel = id => tradeCategoryLabels[id] || tradeWarehouseSettings.customCategories.find(category => category.id === id)?.name || '其他';
-  const tradeWarehouseId = listing => tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing?.warehouseId) ? listing.warehouseId : defaultTradeWarehouseId;
+  const tradeWarehouseId = listing => tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === listing?.warehouseId) ? listing.warehouseId : tradeWarehouseSettings.warehouses[0].id;
   const tradeWarehouseNumberLabel = number => {
     const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
     if (number <= 9) return digits[number];
@@ -3812,9 +3811,10 @@ window.addEventListener('load', async () => {
     document.querySelector('#trade-listing-search').value = listing?.name || material?.n || '';
     document.querySelector('#trade-listing-groups').value = listing?.groups || 1;
     document.querySelector('#trade-listing-unit-price').value = listing?.unitPrice || '';
+    document.querySelector('#trade-listing-note').value = listing?.note || '';
     const warehouseSelect = document.querySelector('#trade-listing-warehouse');
-    warehouseSelect.innerHTML = tradeWarehouseSettings.warehouses.map(warehouse => `<option value="${escapeTradeHtml(warehouse.id)}">${escapeTradeHtml(warehouse.name)}</option>`).join('');
-    warehouseSelect.value = listing ? tradeWarehouseId(listing) : tradeWarehouseSettings.activeWarehouseId;
+    warehouseSelect.innerHTML = '<option value="">请选择仓库</option>' + tradeWarehouseSettings.warehouses.map(warehouse => `<option value="${escapeTradeHtml(warehouse.id)}">${escapeTradeHtml(warehouse.name)}</option>`).join('');
+    warehouseSelect.value = listing ? tradeWarehouseId(listing) : tradeWarehouseSettings.activeWarehouseId === 'overview' ? '' : tradeWarehouseSettings.activeWarehouseId;
     document.querySelector('#trade-listing-error').hidden = true;
     const deleteButton = document.querySelector('#trade-listing-delete');
     deleteButton.hidden = !listing;
@@ -3871,9 +3871,12 @@ window.addEventListener('load', async () => {
   ];
   const renderTradeCategoryDialog = () => {
     const root = document.querySelector('#trade-category-list');
-    root.innerHTML = tradeWarehouseSettings.customCategories.length
-      ? tradeWarehouseSettings.customCategories.map(category => `<div class="trade-category-manage-row"><input aria-label="${escapeTradeHtml(category.name)}的名称" data-trade-category-name="${escapeTradeHtml(category.id)}" maxlength="24" value="${escapeTradeHtml(category.name)}"><button type="button" class="btn secondary" data-trade-category-rename="${escapeTradeHtml(category.id)}">保存名称</button><button type="button" class="btn secondary danger-button" data-trade-category-delete="${escapeTradeHtml(category.id)}">删除</button></div>`).join('')
-      : '<p class="sub">尚未新建分类。</p>';
+    root.innerHTML = tradeCategoryIds().map(id => {
+      const name = tradeCategoryLabel(id);
+      const count = tradeInventory.filter(listing => tradeListingCategory(listing) === id).length;
+      if (!id.startsWith('custom:')) return `<div class="trade-category-manage-row trade-category-built-in"><span>${escapeTradeHtml(name)}</span><small>内置 · ${count} 条</small></div>`;
+      return `<div class="trade-category-manage-row"><input aria-label="${escapeTradeHtml(name)}的名称" data-trade-category-name="${escapeTradeHtml(id)}" maxlength="24" value="${escapeTradeHtml(name)}"><small>${count} 条</small><button type="button" class="btn secondary" data-trade-category-rename="${escapeTradeHtml(id)}">保存名称</button><button type="button" class="btn secondary danger-button" data-trade-category-delete="${escapeTradeHtml(id)}">删除</button></div>`;
+    }).join('');
     root.querySelectorAll('[data-trade-category-rename]').forEach(button => button.onclick = () => {
       const category = tradeWarehouseSettings.customCategories.find(entry => entry.id === button.dataset.tradeCategoryRename);
       if (!category) return;
@@ -4052,6 +4055,42 @@ window.addEventListener('load', async () => {
     input.focus();
     input.select();
   };
+  const editTradeNoteCell = (target, listing) => {
+    if (target.querySelector('textarea')) return;
+    hideTradeContextMenu();
+    const previousMarkup = target.innerHTML;
+    const previousValue = String(listing.note || '');
+    const input = document.createElement('textarea');
+    input.className = 'trade-inline-note';
+    input.rows = 3;
+    input.value = previousValue;
+    input.setAttribute('aria-label', '材料备注');
+    target.textContent = '';
+    target.classList.add('editing');
+    target.append(input);
+    let finished = false;
+    const restore = () => {
+      if (finished) return;
+      finished = true;
+      target.innerHTML = previousMarkup;
+      target.classList.remove('editing');
+    };
+    const commit = () => {
+      if (finished) return;
+      const value = input.value;
+      if (value === previousValue) { restore(); return; }
+      finished = true;
+      listing.note = value;
+      listing.updatedAt = new Date().toLocaleString('zh-CN');
+      save(); renderTrade();
+    };
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); restore(); target.focus(); }
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.stopPropagation(); commit(); }
+    });
+    input.addEventListener('blur', commit);
+    input.focus();
+  };
   const revalidateTradeInventorySources = () => {
     const targets = new Map();
     tradeInventory.forEach(listing => {
@@ -4095,7 +4134,6 @@ window.addEventListener('load', async () => {
       if (state.page === 'trade' && state.tradeView === 'inventory') renderTrade();
     });
   };
-  let tradeWarehouseClickTimer = null;
   let tradeInventoryHelpListeners = null;
   const tradeInventoryHelpText = '独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑并移动仓库；双击单价或库存组数可直接修改，右键快捷操作仍可使用。分类可自行选择或新建。';
   const bindTradeInventoryHelp = root => {
@@ -4122,49 +4160,111 @@ window.addEventListener('load', async () => {
     document.addEventListener('pointerdown', event => { if (!help.contains(event.target)) close(); }, { signal: controller.signal });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tip.hidden) close(); }, { signal: controller.signal });
   };
-  const renameTradeWarehouse = (button, warehouse) => {
-    const input = document.createElement('input');
-    input.className = 'trade-warehouse-rename';
-    input.type = 'text'; input.maxLength = 24; input.value = warehouse.name;
-    input.setAttribute('aria-label', `${warehouse.name}的新名称`);
-    button.replaceWith(input);
-    let finished = false;
-    const finish = saveName => {
-      if (finished) return;
-      if (saveName) {
-        try { warehouse.name = validTradeName(input.value, tradeWarehouseSettings.warehouses, warehouse.id); }
-        catch (error) { input.setCustomValidity(error.message); input.reportValidity(); input.focus(); return; }
-        save();
-      }
-      finished = true;
-      renderTrade();
-    };
-    input.addEventListener('input', () => input.setCustomValidity(''));
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
-      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+  let pendingTradeWarehouseDeleteId = null;
+  const tradeWarehouseError = message => {
+    const error = document.querySelector('#trade-warehouse-error');
+    error.textContent = message;
+    error.hidden = !message;
+  };
+  const renderTradeWarehouseDialog = () => {
+    pendingTradeWarehouseDeleteId = null;
+    tradeWarehouseError('');
+    document.querySelector('#trade-warehouse-delete-panel').hidden = true;
+    const root = document.querySelector('#trade-warehouse-manage-list');
+    root.innerHTML = tradeWarehouseSettings.warehouses.map(warehouse => {
+      const count = tradeInventory.filter(listing => tradeWarehouseId(listing) === warehouse.id).length;
+      return `<div class="trade-warehouse-manage-row"><input data-trade-warehouse-name="${escapeTradeHtml(warehouse.id)}" aria-label="${escapeTradeHtml(warehouse.name)}的新名称" maxlength="24" value="${escapeTradeHtml(warehouse.name)}"><small>${count} 条材料</small><button type="button" class="btn secondary" data-trade-warehouse-rename="${escapeTradeHtml(warehouse.id)}">保存名称</button><button type="button" class="btn secondary danger-button" data-trade-warehouse-delete="${escapeTradeHtml(warehouse.id)}" ${tradeWarehouseSettings.warehouses.length <= 1 ? 'disabled title="至少保留一个仓库"' : ''}>删除</button></div>`;
+    }).join('');
+    root.querySelectorAll('[data-trade-warehouse-rename]').forEach(button => button.onclick = () => {
+      const warehouse = tradeWarehouseSettings.warehouses.find(entry => entry.id === button.dataset.tradeWarehouseRename);
+      const input = root.querySelector(`[data-trade-warehouse-name="${button.dataset.tradeWarehouseRename}"]`);
+      if (!warehouse || !input) return;
+      try {
+        warehouse.name = validTradeName(input.value, tradeWarehouseSettings.warehouses, warehouse.id);
+        save(); renderTrade(); renderTradeWarehouseDialog();
+      } catch (error) { tradeWarehouseError(error.message); input.focus(); }
     });
-    input.addEventListener('blur', () => finish(true));
-    input.focus(); input.select();
+    root.querySelectorAll('[data-trade-warehouse-delete]').forEach(button => button.onclick = () => {
+      if (tradeWarehouseSettings.warehouses.length <= 1) return;
+      const source = tradeWarehouseSettings.warehouses.find(entry => entry.id === button.dataset.tradeWarehouseDelete);
+      if (!source) return;
+      pendingTradeWarehouseDeleteId = source.id;
+      const count = tradeInventory.filter(listing => tradeWarehouseId(listing) === source.id).length;
+      const target = document.querySelector('#trade-warehouse-delete-target');
+      document.querySelector('#trade-warehouse-delete-summary').textContent = count
+        ? `删除“${source.name}”前，请选择接收这 ${count} 条材料的仓库；记录不会合并，数量、单价和备注不变。`
+        : `“${source.name}”没有材料。确认后删除此仓库。`;
+      document.querySelector('#trade-warehouse-delete-target-label').hidden = count === 0;
+      target.innerHTML = '<option value="">请选择接收仓库</option>' + tradeWarehouseSettings.warehouses.filter(entry => entry.id !== source.id).map(entry => `<option value="${escapeTradeHtml(entry.id)}">${escapeTradeHtml(entry.name)}</option>`).join('');
+      target.value = '';
+      tradeWarehouseError('');
+      document.querySelector('#trade-warehouse-delete-panel').hidden = false;
+    });
+  };
+  const openTradeWarehouseDialog = () => {
+    const dialog = document.querySelector('#trade-warehouse-dialog');
+    renderTradeWarehouseDialog();
+    document.querySelector('#trade-warehouse-create').onclick = () => {
+      let number = tradeWarehouseSettings.nextWarehouseNumber;
+      while (tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === `warehouse-${number}` || warehouse.name === `仓库${tradeWarehouseNumberLabel(number)}`)) number += 1;
+      const name = `仓库${tradeWarehouseNumberLabel(number)}`;
+      tradeWarehouseSettings.nextWarehouseNumber = number + 1;
+      const warehouse = { id: `warehouse-${number}`, name };
+      tradeWarehouseSettings.warehouses.push(warehouse);
+      tradeWarehouseSettings.activeWarehouseId = warehouse.id;
+      state.tradeGlobalSearch = '';
+      save(); renderTrade(); renderTradeWarehouseDialog();
+    };
+    document.querySelector('#trade-warehouse-delete-cancel').onclick = () => {
+      pendingTradeWarehouseDeleteId = null;
+      document.querySelector('#trade-warehouse-delete-panel').hidden = true;
+      tradeWarehouseError('');
+    };
+    document.querySelector('#trade-warehouse-delete-confirm').onclick = () => {
+      const sourceId = pendingTradeWarehouseDeleteId;
+      const index = tradeWarehouseSettings.warehouses.findIndex(warehouse => warehouse.id === sourceId);
+      if (index < 0 || tradeWarehouseSettings.warehouses.length <= 1) return;
+      const count = tradeInventory.filter(listing => tradeWarehouseId(listing) === sourceId).length;
+      const targetId = document.querySelector('#trade-warehouse-delete-target').value;
+      const destination = tradeWarehouseSettings.warehouses.find(warehouse => warehouse.id === targetId && warehouse.id !== sourceId);
+      if (count && !destination) { tradeWarehouseError('请选择接收材料的仓库。'); return; }
+      const nextWarehouse = destination || tradeWarehouseSettings.warehouses.find(warehouse => warehouse.id !== sourceId);
+      if (!nextWarehouse) return;
+      tradeInventory.forEach(listing => { if (tradeWarehouseId(listing) === sourceId) listing.warehouseId = nextWarehouse.id; });
+      tradeWarehouseSettings.warehouses.splice(index, 1);
+      if (tradeWarehouseSettings.activeWarehouseId === sourceId) tradeWarehouseSettings.activeWarehouseId = nextWarehouse.id;
+      save(); renderTrade(); renderTradeWarehouseDialog();
+    };
+    if (!dialog.open) dialog.showModal();
+  };
+  const tradeSearchMatches = (listing, query) => {
+    const term = String(query || '').trim().toLocaleLowerCase('zh-CN');
+    if (!term) return true;
+    const material = tradeMaterial(listing.itemId);
+    return `${material?.n || listing.name || ''} ${listing.note || ''}`.toLocaleLowerCase('zh-CN').includes(term);
   };
   function renderTrade() {
     tradeInventoryHelpListeners?.abort();
     tradeInventoryHelpListeners = null;
-    if (tradeWarehouseClickTimer) { clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; }
     if (activeTradePopover) hideTradeMarketPopover();
     const root = document.querySelector('#trade');
     const showTotal = !state.tradeHideTotal;
-    const currentListings = tradeInventory.filter(listing => tradeWarehouseId(listing) === tradeWarehouseSettings.activeWarehouseId);
+    const overview = tradeWarehouseSettings.activeWarehouseId === 'overview';
+    const query = overview ? (state.tradeGlobalSearch || state.tradeWarehouseSearch) : state.tradeWarehouseSearch;
+    const currentListings = tradeInventory.filter(listing => (overview || tradeWarehouseId(listing) === tradeWarehouseSettings.activeWarehouseId) && tradeSearchMatches(listing, query));
+    const warehouseOrder = new Map(tradeWarehouseSettings.warehouses.map((warehouse, index) => [warehouse.id, index]));
     const categories = tradeCategoryIds().filter(category => currentListings.some(listing => tradeListingCategory(listing) === category));
     const categorySections = categories.map(category => {
-      const rows = currentListings.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId));
-      return `<section class="trade-category-section"><h2>${escapeTradeHtml(tradeCategoryLabel(category))}</h2><div class="table-wrap"><table class="ledger trade-ledger${showTotal ? '' : ' trade-ledger-no-total'}"><colgroup><col class="trade-col-material"><col class="trade-col-unit"><col class="trade-col-groups">${showTotal ? '<col class="trade-col-total">' : ''}<col class="trade-col-market"></colgroup><thead><tr><th>材料</th><th>单价</th><th>库存组数</th>${showTotal ? '<th>合价</th>' : ''}<th>市场参考价</th></tr></thead><tbody>${rows.map(listing => {
+      const rows = currentListings.filter(listing => tradeListingCategory(listing) === category).sort((left, right) => Number(left.itemId) - Number(right.itemId) || (warehouseOrder.get(tradeWarehouseId(left)) || 0) - (warehouseOrder.get(tradeWarehouseId(right)) || 0) || String(left.id).localeCompare(String(right.id)));
+      return `<section class="trade-category-section"><h2>${escapeTradeHtml(tradeCategoryLabel(category))}</h2><div class="table-wrap"><table class="ledger trade-ledger${showTotal ? '' : ' trade-ledger-no-total'}${overview ? ' trade-ledger-overview' : ''}"><colgroup><col class="trade-col-material">${overview ? '<col class="trade-col-warehouse">' : ''}<col class="trade-col-unit"><col class="trade-col-groups">${showTotal ? '<col class="trade-col-total">' : ''}<col class="trade-col-market"><col class="trade-col-note"></colgroup><thead><tr><th>材料</th>${overview ? '<th>仓库</th>' : ''}<th>单价</th><th>库存组数</th>${showTotal ? '<th>合价</th>' : ''}<th>市场参考价</th><th>备注</th></tr></thead><tbody>${rows.map(listing => {
         const material = tradeMaterial(listing.itemId) || { uid: listing.itemId, n: listing.name || listing.itemId, groupSize: listing.groupSize };
-        return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${listing.id}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${listing.id}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${listing.id}">${Number(listing.groups)} 组</span></td>${showTotal ? `<td class="price">${money(tradeTotal(listing))}</td>` : ''}<td>${tradeMarketReference(material)}</td></tr>`;
+        const warehouse = tradeWarehouseSettings.warehouses.find(entry => entry.id === tradeWarehouseId(listing));
+        return `<tr><td class="label"><button type="button" class="trade-context-target trade-name-edit" data-trade-name-context="${escapeTradeHtml(listing.id)}" title="点击编辑材料；右键编辑或删除">${itemLabelMarkup(material.uid, material.n)}</button></td>${overview ? `<td>${escapeTradeHtml(warehouse?.name || '')}</td>` : ''}<td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改单价；右键打开编辑窗口" data-trade-unit-price-context="${escapeTradeHtml(listing.id)}">${money(listing.unitPrice)}</span></td><td><span class="trade-context-target trade-cell-edit" tabindex="0" title="双击直接修改库存组数；右键打开编辑窗口" data-trade-quantity-context="${escapeTradeHtml(listing.id)}">${Number(listing.groups)} 组</span></td>${showTotal ? `<td class="price">${money(tradeTotal(listing))}</td>` : ''}<td>${tradeMarketReference(material)}</td><td class="trade-note"><span class="trade-context-target trade-cell-edit trade-note-text" tabindex="0" title="双击编辑备注；Ctrl+Enter 保存" data-trade-note-context="${escapeTradeHtml(listing.id)}">${listing.note ? escapeTradeHtml(listing.note) : '<span class="meta">添加备注</span>'}</span></td></tr>`;
       }).join('')}</tbody></table></div></section>`;
     }).join('');
-    const warehouseTabs = tradeWarehouseSettings.warehouses.map(warehouse => `<button type="button" role="tab" class="trade-warehouse-tab${warehouse.id === tradeWarehouseSettings.activeWarehouseId ? ' active' : ''}" aria-selected="${warehouse.id === tradeWarehouseSettings.activeWarehouseId}" data-trade-warehouse="${escapeTradeHtml(warehouse.id)}" title="双击修改仓库名称">${escapeTradeHtml(warehouse.name)}</button>`).join('');
-    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><div class="trade-inventory-heading"><h1>我的库存材料</h1><span id="trade-inventory-help" class="trade-inventory-help"><button id="trade-inventory-help-button" type="button" aria-label="查看库存材料说明" aria-controls="trade-inventory-help-tip" aria-describedby="trade-inventory-help-tip" aria-expanded="false">?</button><span id="trade-inventory-help-tip" class="trade-inventory-help-tip" role="tooltip" hidden>${escapeTradeHtml(tradeInventoryHelpText)}</span></span></div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-manage-categories" type="button" class="btn secondary">管理分类</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div><div class="trade-warehouse-nav"><div class="trade-warehouse-tabs" role="tablist" aria-label="库存仓库">${warehouseTabs}</div><button id="trade-add-warehouse" type="button" class="btn secondary trade-warehouse-add" aria-label="新增仓库" title="新增仓库">＋</button></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">当前仓库尚未添加材料。</div>'}`;
+    const warehouseTabs = `<button type="button" role="tab" class="trade-warehouse-tab${overview ? ' active' : ''}" aria-selected="${overview}" data-trade-warehouse="overview">总览</button>` + tradeWarehouseSettings.warehouses.map(warehouse => `<button type="button" role="tab" class="trade-warehouse-tab${warehouse.id === tradeWarehouseSettings.activeWarehouseId ? ' active' : ''}" aria-selected="${warehouse.id === tradeWarehouseSettings.activeWarehouseId}" data-trade-warehouse="${escapeTradeHtml(warehouse.id)}">${escapeTradeHtml(warehouse.name)}</button>`).join('');
+    const emptyMessage = query.trim() ? '没有匹配的材料或备注。' : overview ? '所有仓库均尚未添加材料。' : '当前仓库尚未添加材料。';
+    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><div class="trade-inventory-heading"><h1>我的库存材料</h1><span id="trade-inventory-help" class="trade-inventory-help"><button id="trade-inventory-help-button" type="button" aria-label="查看库存材料说明" aria-controls="trade-inventory-help-tip" aria-describedby="trade-inventory-help-tip" aria-expanded="false">?</button><span id="trade-inventory-help-tip" class="trade-inventory-help-tip" role="tooltip" hidden>${escapeTradeHtml(tradeInventoryHelpText)}</span></span></div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-manage-categories" type="button" class="btn secondary">管理分类</button><input id="trade-global-search" class="trade-filter-input" type="search" aria-label="搜索所有仓库的材料或备注" placeholder="搜索所有仓库的材料或备注" value="${escapeTradeHtml(state.tradeGlobalSearch)}"><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div><div class="trade-warehouse-nav"><div class="trade-warehouse-tabs" role="tablist" aria-label="库存仓库">${warehouseTabs}</div><input id="trade-warehouse-search" class="trade-filter-input" type="search" aria-label="${overview ? '搜索总览中的材料或备注' : '搜索当前仓库的材料或备注'}" placeholder="${overview ? '搜索总览材料或备注' : '搜索当前仓库'}" value="${escapeTradeHtml(state.tradeWarehouseSearch)}"><button id="trade-manage-warehouses" type="button" class="btn secondary trade-warehouse-manage">管理仓库</button></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : `<div class="empty trade-empty">${emptyMessage}</div>`}`;
     const recruitmentContent = `<div class="trade-unavailable"><div class="meta">交易市场 · 招募市场</div><h1>招募市场准备中</h1><p>当前版本仅保存你的本机待售材料，不会上传任何库存、采购、成本或销售数据。</p><p>开放前将接入账号、公开上架、服务器筛选、分页浏览、下架与举报机制；届时仅同步你主动公开的材料报价。</p></div>`;
     root.innerHTML = state.tradeView === 'inventory' ? inventoryContent : recruitmentContent;
     bindTradeInventoryHelp(root);
@@ -4172,25 +4272,47 @@ window.addEventListener('load', async () => {
     root.querySelector('#trade-add-listing')?.addEventListener('click', () => openTradeListingDialog());
     root.querySelector('#trade-manage-categories')?.addEventListener('click', () => openTradeCategoryDialog());
     root.querySelector('#trade-refresh-market')?.addEventListener('click', () => refreshMarket(true, currentListings.map(listing => tradeMaterial(listing.itemId)).filter(Boolean)));
-    root.querySelector('#trade-add-warehouse')?.addEventListener('click', () => {
-      const number = tradeWarehouseSettings.nextWarehouseNumber++;
-      const warehouse = { id: `warehouse-${number}`, name: `仓库${tradeWarehouseNumberLabel(number)}` };
-      tradeWarehouseSettings.warehouses.push(warehouse);
-      tradeWarehouseSettings.activeWarehouseId = warehouse.id;
-      save(); renderTrade();
-    });
-    root.querySelectorAll('[data-trade-warehouse]').forEach(button => {
-      const warehouse = tradeWarehouseSettings.warehouses.find(entry => entry.id === button.dataset.tradeWarehouse);
-      if (!warehouse) return;
-      button.onclick = event => {
-        if (event.detail > 1 || warehouse.id === tradeWarehouseSettings.activeWarehouseId) return;
-        const switchWarehouse = () => { tradeWarehouseSettings.activeWarehouseId = warehouse.id; save(); renderTrade(); };
-        if (tradeWarehouseClickTimer) clearTimeout(tradeWarehouseClickTimer);
-        if (event.detail === 0) switchWarehouse();
-        else tradeWarehouseClickTimer = setTimeout(switchWarehouse, 180);
+    root.querySelector('#trade-manage-warehouses')?.addEventListener('click', openTradeWarehouseDialog);
+    const bindTradeSearch = (selector, stateKey, global) => {
+      const input = root.querySelector(selector);
+      if (!input) return;
+      let composing = false;
+      let awaitingCompositionCommit = false;
+      const applySearch = () => {
+        const cursor = input.selectionStart;
+        state[stateKey] = input.value;
+        if (global) {
+          state.tradeWarehouseSearch = '';
+          if (input.value.trim()) tradeWarehouseSettings.activeWarehouseId = 'overview';
+        } else state.tradeGlobalSearch = '';
+        renderTrade();
+        const next = document.querySelector(selector);
+        next?.focus();
+        if (cursor !== null) next?.setSelectionRange?.(cursor, cursor);
       };
-      button.ondblclick = event => { event.preventDefault(); clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; renameTradeWarehouse(button, warehouse); };
-      button.onkeydown = event => { if (event.key === 'F2') { event.preventDefault(); clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; renameTradeWarehouse(button, warehouse); } };
+      input.addEventListener('compositionstart', () => { composing = true; awaitingCompositionCommit = false; });
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        awaitingCompositionCommit = true;
+        setTimeout(() => {
+          if (!awaitingCompositionCommit || document.querySelector(selector) !== input) return;
+          awaitingCompositionCommit = false;
+          applySearch();
+        }, 0);
+      });
+      input.addEventListener('input', event => { if (!composing && !event.isComposing && !awaitingCompositionCommit) applySearch(); });
+    };
+    bindTradeSearch('#trade-global-search', 'tradeGlobalSearch', true);
+    bindTradeSearch('#trade-warehouse-search', 'tradeWarehouseSearch', false);
+    root.querySelectorAll('[data-trade-warehouse]').forEach(button => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.tradeWarehouse;
+        if (id === tradeWarehouseSettings.activeWarehouseId) return;
+        if (id !== 'overview' && !tradeWarehouseSettings.warehouses.some(entry => entry.id === id)) return;
+        tradeWarehouseSettings.activeWarehouseId = id;
+        if (id !== 'overview') state.tradeGlobalSearch = '';
+        save(); renderTrade();
+      });
     });
     root.querySelectorAll('[data-trade-name-context]').forEach(target => {
       const listing = tradeInventory.find(entry => entry.id === target.dataset.tradeNameContext);
@@ -4208,6 +4330,11 @@ window.addEventListener('load', async () => {
       target.ondblclick = () => { if (listing) editTradeCell(target, listing, 'unitPrice'); };
       target.onkeydown = event => { if (event.target === target && (event.key === 'Enter' || event.key === 'F2')) { event.preventDefault(); if (listing) editTradeCell(target, listing, 'unitPrice'); } };
       target.oncontextmenu = event => event.target === target && listing && showTradeContextMenu(event, listing, 'unit-price');
+    });
+    root.querySelectorAll('[data-trade-note-context]').forEach(target => {
+      const listing = tradeInventory.find(entry => entry.id === target.dataset.tradeNoteContext);
+      target.ondblclick = () => { if (listing) editTradeNoteCell(target, listing); };
+      target.onkeydown = event => { if (event.target === target && (event.key === 'Enter' || event.key === 'F2')) { event.preventDefault(); if (listing) editTradeNoteCell(target, listing); } };
     });
     root.querySelectorAll('[data-trade-market-reference]').forEach(button => {
       const material = tradeMaterial(button.dataset.tradeMarketReference);
@@ -5040,11 +5167,11 @@ window.addEventListener('load', async () => {
     if (!tradeWarehouseSettings.warehouses.some(warehouse => warehouse.id === warehouseId)) return fail('请选择有效的仓库。', document.querySelector('#trade-listing-warehouse'));
     if (!tradeCategoryIds().includes(category)) return fail('请选择有效的来源分类。', document.querySelector('#trade-listing-category'));
     const timestamp = new Date().toLocaleString('zh-CN');
-    const entry = { id: state.tradeEditingId || 'trade-' + Date.now() + '-' + Math.random().toString(16).slice(2), itemId: String(material.uid), name: material.n, warehouseId, category, categoryOrigin: 'manual', groups, groupSize: tradeGroupSize(material), unitPrice, total: groups * tradePriceMultiplier(material) * unitPrice, createdAt: previous?.createdAt || timestamp, updatedAt: timestamp, visibility: 'local', remoteId: null, syncStatus: 'local' };
+    const entry = { id: state.tradeEditingId || 'trade-' + Date.now() + '-' + Math.random().toString(16).slice(2), itemId: String(material.uid), name: material.n, warehouseId, category, categoryOrigin: 'manual', groups, groupSize: tradeGroupSize(material), unitPrice, note: document.querySelector('#trade-listing-note').value, total: groups * tradePriceMultiplier(material) * unitPrice, createdAt: previous?.createdAt || timestamp, updatedAt: timestamp, visibility: 'local', remoteId: null, syncStatus: 'local' };
     const index = tradeInventory.findIndex(row => row.id === state.tradeEditingId);
     if (index >= 0) tradeInventory[index] = entry;
     else tradeInventory.unshift(entry);
-    tradeWarehouseSettings.activeWarehouseId = warehouseId;
+    if (tradeWarehouseSettings.activeWarehouseId !== 'overview') tradeWarehouseSettings.activeWarehouseId = warehouseId;
     save();
     document.querySelector('#trade-listing-dialog').close();
     state.tradeEditingId = null;

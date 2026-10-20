@@ -46,6 +46,7 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .equipment-type-nav button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .equipment-page-actions { display: flex; align-items: end; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
 .trade-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.trade-filter-input { box-sizing: border-box; width: clamp(175px, 20vw, 280px); min-width: 0; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 3px; background: #fff; font: inherit; }
 .trade-inventory-heading { position: relative; display: inline-flex; align-items: flex-start; gap: 5px; max-width: 100%; }
 .trade-inventory-help { display: inline-flex; margin-top: 1px; }
 .trade-inventory-help button { display: inline-grid; place-items: center; width: 17px; height: 17px; padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: #fff; color: var(--muted); font: 700 11px/1 "Microsoft YaHei", sans-serif; cursor: help; }
@@ -57,31 +58,57 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-warehouse-tabs { display: flex; align-items: stretch; gap: 5px; min-width: 0; flex: 1; overflow-x: auto; scrollbar-width: thin; }
 .trade-warehouse-tab { flex: 0 0 auto; max-width: 180px; padding: 10px 14px; overflow: hidden; border: 1px solid var(--line-strong); border-bottom: 0; border-radius: 4px 4px 0 0; background: var(--surface-soft); color: var(--ink); font: inherit; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .trade-warehouse-tab.active { background: #fff; font-weight: 700; box-shadow: inset 0 -2px var(--ink); }
-.trade-warehouse-tab:focus-visible, .trade-warehouse-add:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
-.trade-warehouse-add { flex: 0 0 auto; align-self: center; min-width: 38px; margin-left: auto; padding: 6px 9px; font-size: 18px; }
-.trade-warehouse-rename { box-sizing: border-box; align-self: center; width: 150px; min-width: 100px; height: 36px; padding: 5px 8px; border: 1px solid var(--ink); font: inherit; }
+.trade-warehouse-tab:focus-visible, .trade-warehouse-manage:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.trade-warehouse-nav > .trade-filter-input { align-self: center; flex: 0 1 210px; width: 210px; }
+.trade-warehouse-manage { flex: 0 0 auto; align-self: center; white-space: nowrap; }
+.trade-warehouse-manage-list { display: grid; gap: 8px; margin: 14px 0; }
+.trade-warehouse-manage-row { display: flex; align-items: center; gap: 7px; }
+.trade-warehouse-manage-row input { min-width: 0; flex: 1; padding: 7px; }
+.trade-warehouse-manage-row small { flex: 0 0 65px; color: var(--muted); text-align: center; }
+.trade-warehouse-manage-row button { flex: 0 0 auto; }
+.trade-warehouse-delete-panel { margin-top: 14px; padding: 12px; border: 1px solid var(--line-strong); background: var(--surface-soft); }
+.trade-warehouse-delete-panel[hidden] { display: none; }
+.trade-warehouse-delete-panel select { width: 100%; margin: 8px 0; }
 .trade-manage-category { margin-top: 5px; }
 .trade-category-list { display: grid; gap: 7px; margin-top: 16px; }
 .trade-category-manage-row { display: flex; align-items: center; gap: 7px; }
 .trade-category-manage-row input { min-width: 0; flex: 1; padding: 7px; }
 .trade-category-manage-row button { flex: 0 0 auto; }
+.trade-category-manage-row small { flex: 0 0 auto; color: var(--muted); }
+.trade-category-built-in { justify-content: space-between; padding: 8px 9px; border: 1px solid var(--line); background: var(--surface-soft); }
 .trade-category-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
 .trade-category-section { min-width: 0; margin: 0; }
 .trade-category-section h2 { margin: 0; padding: 5px 6px; border: 1px solid var(--line-strong); border-bottom: 0; background: var(--surface-soft); font-size: 14px; }
 .trade-category-section .table-wrap { margin-top: 0; overflow-x: auto; overflow-y: hidden; }
-/* 覆盖通用 .ledger 的最小宽度，避免双栏库存表把右侧列裁掉。 */
+/* 双栏内压缩列宽，窄窗口由下方媒体规则切换成单栏。 */
 .ledger.trade-ledger { width: 100%; min-width: 0; table-layout: fixed; font-size: inherit; }
 .trade-ledger th, .trade-ledger td { padding: 4px 2px; white-space: normal; overflow-wrap: anywhere; word-break: normal; line-height: 1.35; }
-.trade-ledger .trade-col-material { width: 27%; }
-.trade-ledger .trade-col-unit { width: 15%; }
-.trade-ledger .trade-col-groups { width: 22%; }
-.trade-ledger .trade-col-total { width: 20%; }
-.trade-ledger .trade-col-market { width: 16%; }
-.trade-ledger-no-total .trade-col-material { width: 35%; }
-.trade-ledger-no-total .trade-col-unit { width: 18%; }
-.trade-ledger-no-total .trade-col-groups { width: 25%; }
-.trade-ledger-no-total .trade-col-market { width: 22%; }
+.trade-ledger .trade-col-material { width: 24%; }
+.trade-ledger .trade-col-warehouse { width: 10%; }
+.trade-ledger .trade-col-unit { width: 10%; }
+.trade-ledger .trade-col-groups { width: 12%; }
+.trade-ledger .trade-col-total { width: 18%; }
+.trade-ledger .trade-col-market { width: 14%; }
+.trade-ledger .trade-col-note { width: 22%; }
+.trade-ledger-overview .trade-col-material { width: 20%; }
+.trade-ledger-overview .trade-col-groups { width: 10%; }
+.trade-ledger-overview .trade-col-total { width: 17%; }
+.trade-ledger-overview .trade-col-market { width: 13%; }
+.trade-ledger-overview .trade-col-note { width: 20%; }
+.trade-ledger-no-total .trade-col-material { width: 27%; }
+.trade-ledger-no-total .trade-col-unit { width: 12%; }
+.trade-ledger-no-total .trade-col-groups { width: 15%; }
+.trade-ledger-no-total .trade-col-market { width: 17%; }
+.trade-ledger-no-total .trade-col-note { width: 29%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-material { width: 22%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-warehouse { width: 11%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-unit { width: 11%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-groups { width: 13%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-market { width: 15%; }
+.trade-ledger-overview.trade-ledger-no-total .trade-col-note { width: 28%; }
 .trade-ledger .item-label { gap: 3px; }
+.trade-ledger .trade-name-edit { max-width: 100%; }
+.trade-ledger .item-label > span { min-width: 0; overflow-wrap: anywhere; }
 .trade-ledger .item-icon { width: 18px; height: 18px; flex-basis: 18px; }
 .trade-context-target { display: inline-flex; align-items: center; min-height: 24px; border-radius: 2px; cursor: context-menu; }
 .trade-context-target:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -89,6 +116,8 @@ body { margin: 0; background: var(--surface); color: var(--ink); font: 14px "Mic
 .trade-cell-edit:hover { background: var(--surface-soft); }
 .trade-cell-edit.editing { width: 100%; }
 .trade-inline-input { box-sizing: border-box; width: 100%; min-width: 0; padding: 3px 2px; border: 1px solid var(--ink); border-radius: 2px; background: #fff; color: var(--ink); font: inherit; text-align: center; }
+.trade-note-text { display: inline-block; width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
+.trade-inline-note { box-sizing: border-box; width: 100%; min-height: 65px; padding: 5px; border: 1px solid var(--ink); font: inherit; resize: vertical; }
 .trade-name-edit { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .trade-name-edit:hover { text-decoration: underline; text-underline-offset: 2px; }
 .trade-context-menu { position: fixed; z-index: 120; display: grid; min-width: 142px; padding: 4px; border: 1px solid var(--line-strong); background: #fff; box-shadow: 0 8px 26px #00000020; }
@@ -505,6 +534,11 @@ dialog#bundle-detail-dialog { width: min(1200px, 88vw); min-width: min(330px, ca
 }
 
 @media (max-width: 560px) {
+  .trade-warehouse-nav { flex-wrap: wrap; }
+  .trade-warehouse-tabs { flex-basis: 100%; }
+  .trade-warehouse-nav > .trade-filter-input { flex: 1; width: auto; }
+  .trade-warehouse-manage-row { flex-wrap: wrap; }
+  .trade-warehouse-manage-row input { flex-basis: 100%; }
   .trade-category-manage-row { flex-wrap: wrap; }
   .trade-category-manage-row input { flex-basis: 100%; }
   .app-brand span { display: none; }

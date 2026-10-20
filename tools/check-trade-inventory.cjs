@@ -127,14 +127,16 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.match(script, /target\.onclick = \(\) => \{ if \(listing\) openTradeListingDialog\(listing\); \}/, '点击名称打开现有编辑弹窗');
   assert.match(script, /target\.oncontextmenu = event => listing && showTradeContextMenu\(event, listing, 'name'\)/, '保留右键菜单');
   assert.match(css, /\.trade-market-popover \{[^}]*width: max-content;[^}]*max-width: min\(420px, calc\(100vw - 24px\)\)/, '悬浮框按内容收紧且受视口限制');
-  assert.match(css, /\.ledger\.trade-ledger \{[^}]*min-width: 0;/, '库存表必须覆盖通用账本最小宽度');
+  assert.match(css, /\.trade-category-sections \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/, '宽于 1280px 时分类表恢复双栏');
+  assert.match(css, /\.ledger\.trade-ledger \{[^}]*min-width: 0;/, '双栏内库存表按可用宽度压缩');
   assert.match(css, /\.trade-category-section \.table-wrap \{[^}]*overflow-x: auto;/, '狭窄窗口不应直接裁掉库存列');
   assert.match(css, /@media \(max-width: 1280px\) \{\s*\.trade-category-sections \{ grid-template-columns: 1fr; \}/, '客户端小窗口改为单栏库存表');
-  assert.match(script, /<th>材料<\/th><th>单价<\/th><th>库存组数<\/th>\$\{showTotal \? '<th>合价<\/th>' : ''\}<th>市场参考价<\/th>/, '合价列可隐藏');
+  assert.match(script, /<th>材料<\/th>\$\{overview \? '<th>仓库<\/th>' : ''\}<th>单价<\/th><th>库存组数<\/th>\$\{showTotal \? '<th>合价<\/th>' : ''\}<th>市场参考价<\/th><th>备注<\/th>/, '总览仓库列、备注列和可隐藏的合价列');
   assert.match(script, /\$\{showTotal \? `<td class="price">\$\{money\(tradeTotal\(listing\)\)\}<\/td>` : ''\}/, '合价隐藏只影响展示');
   assert.match(script, /id="trade-toggle-total"[^>]*aria-pressed="\$\{state\.tradeHideTotal\}"/, '库存界面有合价显隐按钮');
   assert.match(script, /state\.tradeHideTotal = !state\.tradeHideTotal; renderTrade\(\)/, '切换后重新渲染库存表');
-  assert.match(css, /\.trade-ledger-no-total \.trade-col-material \{ width: 35%; \}/, '隐藏合价后重新分配列宽');
+  assert.match(css, /\.trade-ledger-overview \.trade-col-note \{ width: 20%; \}/, '总览双栏为备注保留列宽');
+  assert.match(css, /\.trade-ledger-overview\.trade-ledger-no-total \.trade-col-note \{ width: 28%; \}/, '隐藏合价后重新分配总览备注列宽');
   assert.match(script, /id="trade-listing-delete"[^>]*hidden>删除材料<\/button>/, '删除按钮只放在材料详情弹窗');
   assert.match(script, /deleteButton\.hidden = !listing/, '新增材料隐藏删除按钮');
   assert.match(script, /localStorage\.setItem\(tradeSourceCacheStorageKey, JSON\.stringify\(tradeSourceCache\)\)/, '逐项来源核验只写缓存，不重复序列化整本账');
@@ -143,6 +145,9 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'groups'\); \}/, '双击组数进入行内编辑');
   assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'unitPrice'\); \}/, '双击单价进入行内编辑');
   assert.match(css, /\.trade-inline-input \{[^}]*width: 100%/, '行内输入框适应单元格宽度');
+  assert.match(script, /id="trade-listing-note"[^>]*textarea|id="trade-listing-note"/, '材料详情可编辑备注');
+  assert.match(script, /note: document\.querySelector\('#trade-listing-note'\)\.value/, '材料详情保存备注');
+  assert.match(css, /\.trade-note-text \{[^}]*white-space: pre-wrap;/, '备注换行保留在表格内');
 
   const renderStart = script.indexOf('  function renderTrade() {');
   const renderEnd = script.indexOf('  // 默认方案一', renderStart);
@@ -150,7 +155,7 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.doesNotMatch(script.slice(renderStart, renderEnd), /data-trade-delete|trade-col-action|<th>操作<\/th>/, '库存表不展示删除入口和操作列');
   const totalToggle = { addEventListener: (_name, handler) => { totalToggle.click = handler; } };
   const tradeRoot = { innerHTML: '', querySelector: selector => selector === '#trade-toggle-total' ? totalToggle : null, querySelectorAll: () => [] };
-  const displayState = { tradeView: 'inventory', tradeHideTotal: false, marketRefreshing: false };
+  const displayState = { tradeView: 'inventory', tradeHideTotal: false, tradeGlobalSearch: '', tradeWarehouseSearch: '', marketRefreshing: false };
   let totalCalculations = 0;
   const displayContext = vm.createContext({
     state: displayState, activeTradePopover: null, tradeWarehouseClickTimer: null, tradeInventoryHelpListeners: null,
@@ -159,7 +164,7 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
     tradeCategoryOrder: ['botanist'], tradeCategoryLabels: { botanist: '园艺' },
     tradeCategoryIds: () => ['botanist'], tradeCategoryLabel: () => '园艺', escapeTradeHtml: value => String(value),
     tradeWarehouseSettings: { warehouses: [{ id: 'warehouse-1', name: '仓库一' }], activeWarehouseId: 'warehouse-1' },
-    tradeWarehouseId: () => 'warehouse-1',
+    tradeWarehouseId: () => 'warehouse-1', tradeSearchMatches: () => true,
     tradeInventory: [{ id: 'display', itemId: '1', groups: 2, unitPrice: 100 }],
     tradeListingCategory: () => 'botanist', tradeMaterial: id => materials.find(item => item.uid === String(id)),
     itemLabelMarkup: (_id, name) => name, money: value => `${value} G`,
@@ -206,7 +211,7 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
     tradeTotal: listing => listing.groups * 1000 * listing.unitPrice,
     save: () => { inlineSaves++; }, renderTrade: () => { inlineRenders++; }, Date, Number
   });
-  vm.runInContext(script.slice(inlineStart, inlineEnd) + '\nthis.editTradeCell = editTradeCell;', inlineContext);
+  vm.runInContext(script.slice(inlineStart, inlineEnd) + '\nthis.editTradeCell = editTradeCell; this.editTradeNoteCell = editTradeNoteCell;', inlineContext);
   const inlineListing = { itemId: '1', groups: 2, groupSize: 999, unitPrice: 100, total: 200000 };
   const priceTarget = new InlineTarget('100 G');
   inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
@@ -234,11 +239,22 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   assert.equal(inlineListing.total, 446000);
   assert.equal(inlineSaves, 2);
 
+  const noteTarget = { innerHTML: '<span class="meta">添加备注</span>', input: null,
+    classList: { add() {}, remove() {} }, querySelector() { return this.input; },
+    append(input) { this.input = input; }, focus() {} };
+  inlineContext.editTradeNoteCell(noteTarget, inlineListing);
+  noteTarget.input.value = '第一行\n<&> 第二行';
+  noteTarget.input.fire('keydown', { key: 'Enter', ctrlKey: true, preventDefault() {}, stopPropagation() {} });
+  assert.equal(inlineListing.note, '第一行\n<&> 第二行', '备注原样保留换行和特殊字符');
+  assert.equal(inlineSaves, 3);
+  const noteBackup = JSON.parse(JSON.stringify(inlineListing));
+  assert.equal(noteBackup.note, inlineListing.note, 'JSON 备份往返保留备注');
+
   inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
   priceTarget.input.value = '-1';
   priceTarget.input.fire('blur');
   assert.equal(inlineListing.unitPrice, 111.5, '无效单价失焦不写入账本');
-  assert.equal(inlineSaves, 2);
+  assert.equal(inlineSaves, 3);
 
   const deleteStart = script.indexOf('  const removeTradeListing =');
   const deleteEnd = script.indexOf('  const showTradeContextMenu =', deleteStart);

@@ -51,6 +51,7 @@ const context = vm.createContext({
   document: { querySelector: element },
   state: { tradeEditingId: null },
   tradeMaterial: () => null,
+  tradeListingCategory: listing => listing.category,
   save: () => { saved++; }, renderTrade: () => { rendered++; },
   confirm: () => confirmed,
   Date, Math
@@ -75,6 +76,9 @@ const custom = context.tradeWarehouseSettings.customCategories[0];
 assert.equal(custom.name, '待上架');
 assert.match(custom.id, /^custom:/);
 assert.ok(context.categoryTools.tradeCategoryIds().includes(custom.id));
+assert.equal(context.categoryTools.tradeCategoryIds().at(-1), 'other', '其他始终排在自建分类后面');
+assert.match(categoryList.innerHTML, /园艺[\s\S]*采矿[\s\S]*战职[\s\S]*水晶[\s\S]*待上架[\s\S]*其他/, '管理弹窗展示全部内置分类、自建分类和最后的其他');
+assert.doesNotMatch(categoryList.innerHTML, /data-trade-category-delete="(?:botanist|miner|combat|crystal|other)"/, '内置分类不可删除');
 inventory[0].category = custom.id;
 inventory[0].categoryOrigin = 'manual';
 categoryList.querySelector(`[data-trade-category-name="${custom.id}"]`).value = '准备出售';
@@ -102,29 +106,40 @@ assert.equal(element('#trade-category-dialog').open, false);
 element('#trade-listing-dialog').open = false;
 
 const listeners = new Map();
+const makeControl = (selector, value = '') => ({ value, selectionStart: value.length, disabled: false, handlers: {},
+  addEventListener(name, handler) { this.handlers[name] = handler; }, focus() { this.focused = true; },
+  setSelectionRange() {} });
 const tradeRoot = {
-  innerHTML: '', tabs: [],
+  innerHTML: '', tabs: [], controls: new Map(),
   querySelector(selector) {
-    if (!['#trade-toggle-total', '#trade-refresh-market', '#trade-manage-categories', '#trade-add-listing', '#trade-add-warehouse'].includes(selector)) return null;
-    return { addEventListener: (_name, handler) => listeners.set(selector, handler) };
+    if (!['#trade-toggle-total', '#trade-refresh-market', '#trade-manage-categories', '#trade-add-listing', '#trade-manage-warehouses', '#trade-global-search', '#trade-warehouse-search'].includes(selector)) return null;
+    if (!this.controls.has(selector)) this.controls.set(selector, makeControl(selector));
+    const control = this.controls.get(selector);
+    control.addEventListener = (name, handler) => listeners.set(`${selector}:${name}`, handler);
+    return control;
   },
   querySelectorAll(selector) {
     if (selector !== '[data-trade-warehouse]') return [];
-    this.tabs = context.tradeWarehouseSettings.warehouses.map(row => ({ dataset: { tradeWarehouse: row.id }, onclick: null, ondblclick: null, onkeydown: null, replaceWith(input) { tradeRoot.renameInput = input; } }));
+    this.tabs = [{ dataset: { tradeWarehouse: 'overview' }, addEventListener(_name, handler) { this.click = handler; } },
+      ...context.tradeWarehouseSettings.warehouses.map(row => ({ dataset: { tradeWarehouse: row.id }, addEventListener(_name, handler) { this.click = handler; } }))];
     return this.tabs;
   }
 };
-class RenameInput {
-  constructor() { this.handlers = {}; }
-  setAttribute() {}
-  setCustomValidity() {}
-  reportValidity() {}
-  addEventListener(name, callback) { this.handlers[name] = callback; }
-  focus() {}
-  select() {}
-}
-context.document = { querySelector: selector => selector === '#trade' ? tradeRoot : element(selector), createElement: () => new RenameInput() };
-context.state = { tradeView: 'inventory', tradeHideTotal: false, marketRefreshing: false };
+const managerList = { _innerHTML: '', buttonSets: new Map(),
+  get innerHTML() { return this._innerHTML; },
+  set innerHTML(value) { this._innerHTML = value; this.buttonSets.clear(); managerNames.clear(); context.tradeWarehouseSettings.warehouses.forEach(row => managerNames.set(row.id, { value: row.name, focus() {} })); },
+  querySelectorAll(selector) {
+    const key = selector.includes('rename') ? 'tradeWarehouseRename' : 'tradeWarehouseDelete';
+    if (!this.buttonSets.has(key)) this.buttonSets.set(key, context.tradeWarehouseSettings.warehouses.map(row => ({ dataset: { [key]: row.id }, onclick: null })));
+    return this.buttonSets.get(key);
+  }, querySelector(selector) {
+  const id = /data-trade-warehouse-name="([^"]+)"/.exec(selector)?.[1];
+  return managerNames.get(id);
+} };
+const managerNames = new Map();
+const originalQuery = selector => selector === '#trade' ? tradeRoot : selector === '#trade-warehouse-manage-list' ? managerList : tradeRoot.controls.get(selector) || element(selector);
+context.document = { querySelector: originalQuery };
+context.state = { tradeView: 'inventory', tradeHideTotal: false, tradeGlobalSearch: '', tradeWarehouseSearch: '', marketRefreshing: false };
 context.activeTradePopover = null;
 context.tradeMaterial = id => ({ uid: id, n: id === '1' ? '云杉原木' : '绿金矿' });
 context.itemLabelMarkup = (_id, name) => name;
@@ -132,37 +147,134 @@ context.money = value => `${value} G`;
 context.tradeTotal = listing => listing.groups * listing.unitPrice * 1000;
 context.tradeMarketReference = () => '参考';
 context.tradeListingCategory = listing => listing.category;
+context.escapeTradeHtml = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;');
 context.revalidateTradeInventorySources = () => {};
-context.setTimeout = setTimeout;
-context.clearTimeout = clearTimeout;
-vm.runInContext(between('  let tradeWarehouseClickTimer =', '  // 默认方案一') + '\nthis.renderTrade = renderTrade; this.bindTradeInventoryHelp = bindTradeInventoryHelp;', context);
+let compositionCommit;
+context.setTimeout = handler => { compositionCommit = handler; };
+vm.runInContext(between('  let tradeInventoryHelpListeners =', '  // 默认方案一') + '\nthis.renderTrade = renderTrade; this.openTradeWarehouseDialog = openTradeWarehouseDialog; this.bindTradeInventoryHelp = bindTradeInventoryHelp;', context);
 context.renderTrade();
-assert.match(tradeRoot.innerHTML, /仓库一.*仓库二.*仓库三/);
+assert.match(tradeRoot.innerHTML, /总览.*仓库一.*仓库二.*仓库三/);
 assert.match(tradeRoot.innerHTML, /id="trade-inventory-help-tip"[^>]*hidden/, '使用说明默认隐藏在问号提示内');
-assert.match(tradeRoot.innerHTML, /普通材料 999 个 \/ 组/, '保留完整的库存说明');
-assert.doesNotMatch(tradeRoot.innerHTML, /<div class="sub">独立的待售材料清单/, '不再常驻显示说明段落');
+assert.match(tradeRoot.innerHTML, /id="trade-global-search".*id="trade-add-listing"/, '全局搜索靠近添加材料');
+assert.match(tradeRoot.innerHTML, /id="trade-warehouse-search".*id="trade-manage-warehouses"/, '仓库搜索和管理入口位于标签行');
+assert.doesNotMatch(tradeRoot.innerHTML, /id="trade-add-warehouse"|id="trade-delete-warehouse"/, '仓库行不再有单独新增、删除');
 assert.match(tradeRoot.innerHTML, /云杉原木/);
-tradeRoot.tabs[1].onclick({ detail: 0 });
+tradeRoot.tabs[2].click();
 assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'warehouse-2');
 assert.doesNotMatch(tradeRoot.innerHTML, /云杉原木/, '切换仓库不显示其他仓库材料');
-listeners.get('#trade-add-warehouse')();
-assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'warehouse-4');
+const savesBeforeSearch = saved;
+tradeRoot.controls.get('#trade-global-search').value = '云杉';
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'overview', '全局输入自动切换总览');
+assert.equal(saved, savesBeforeSearch, '搜索不写入库存数据');
+assert.match(tradeRoot.innerHTML, /云杉原木/);
+assert.doesNotMatch(tradeRoot.innerHTML, /绿金矿/, '全局搜索筛选匹配记录');
+tradeRoot.controls.get('#trade-global-search').value = '';
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'overview', '清空全局搜索仍停留总览');
+const globalInput = tradeRoot.controls.get('#trade-global-search');
+listeners.get('#trade-global-search:compositionstart')();
+globalInput.value = '云';
+listeners.get('#trade-global-search:input')({ isComposing: true });
+assert.equal(context.state.tradeGlobalSearch, '', '中文输入法尚在组字时不重绘输入框');
+globalInput.value = '云杉';
+listeners.get('#trade-global-search:compositionend')();
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.equal(context.state.tradeGlobalSearch, '', '中文上屏的末次输入事件不会提前重建输入框');
+compositionCommit();
+assert.equal(context.state.tradeGlobalSearch, '云杉', '中文上屏后执行全局搜索');
+assert.match(tradeRoot.innerHTML, /云杉原木/);
+tradeRoot.controls.get('#trade-global-search').value = '';
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.match(tradeRoot.innerHTML, /id="trade-warehouse-search"[^>]*placeholder="搜索总览材料或备注"/, '总览中直接提供可输入的视图搜索');
+assert.doesNotMatch(tradeRoot.innerHTML, /id="trade-warehouse-search"[^>]*(readonly|disabled)/, '总览搜索不得锁定');
+const warehouseInput = tradeRoot.controls.get('#trade-warehouse-search');
+listeners.get('#trade-warehouse-search:compositionstart')();
+warehouseInput.value = '云';
+listeners.get('#trade-warehouse-search:input')({ isComposing: true });
+assert.equal(context.state.tradeWarehouseSearch, '', '视图搜索组字期间保持输入框');
+warehouseInput.value = '云杉';
+listeners.get('#trade-warehouse-search:compositionend')();
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+compositionCommit();
+assert.equal(context.state.tradeWarehouseSearch, '云杉', '总览搜索支持中文上屏');
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'overview', '总览内搜索不切换仓库');
+assert.equal((tradeRoot.innerHTML.match(/云杉原木<\/button>/g) || []).length, 2, '总览搜索命中所有仓库的独立记录');
+tradeRoot.tabs[2].click();
+assert.equal(context.state.tradeWarehouseSearch, '云杉', '切换仓库保留视图搜索词');
+assert.doesNotMatch(tradeRoot.innerHTML, /云杉原木<\/button>/, '同一关键词只筛选当前仓库');
+tradeRoot.tabs[0].click();
+assert.equal(context.state.tradeWarehouseSearch, '云杉', '回到总览继续使用同一关键词');
+assert.equal((tradeRoot.innerHTML.match(/云杉原木<\/button>/g) || []).length, 2);
+warehouseInput.value = '';
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+tradeRoot.tabs[1].click();
+assert.equal(context.state.tradeGlobalSearch, '', '点击具体仓库清空全局搜索');
+tradeRoot.controls.get('#trade-warehouse-search').value = '无结果';
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+assert.match(tradeRoot.innerHTML, /没有匹配的材料或备注/);
+tradeRoot.tabs[2].click();
+assert.equal(context.state.tradeWarehouseSearch, '无结果', '仓库搜索词跨仓库保持');
+tradeRoot.tabs[0].click();
+assert.equal(context.state.tradeWarehouseSearch, '无结果', '总览保留视图搜索词');
+assert.match(tradeRoot.innerHTML, /没有匹配的材料或备注/);
+const savesBeforeExclusive = saved;
+tradeRoot.controls.get('#trade-global-search').value = '云杉';
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.equal(context.state.tradeWarehouseSearch, '', '上方搜索清空下方关键词');
+tradeRoot.controls.get('#trade-warehouse-search').value = '找不到';
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+assert.equal(context.state.tradeGlobalSearch, '', '下方搜索清空上方关键词');
+assert.equal(saved, savesBeforeExclusive, '输入搜索词不额外保存库存');
+tradeRoot.controls.get('#trade-warehouse-search').value = '';
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+
+context.openTradeWarehouseDialog();
+assert.equal(element('#trade-warehouse-dialog').open, true);
+assert.match(managerList.innerHTML, /仓库一.*仓库二.*仓库三/);
+element('#trade-warehouse-create').onclick();
 assert.equal(context.tradeWarehouseSettings.warehouses[3].name, '仓库四');
-tradeRoot.tabs[3].ondblclick({ preventDefault() {} });
-tradeRoot.renameInput.value = '材料仓';
-tradeRoot.renameInput.handlers.keydown({ key: 'Enter', preventDefault() {} });
-assert.equal(context.tradeWarehouseSettings.warehouses[3].name, '材料仓', '双击仓库标题可改名');
-assert.match(tradeRoot.innerHTML, /材料仓/);
-tradeRoot.tabs[3].ondblclick({ preventDefault() {} });
-tradeRoot.renameInput.value = '临时名称';
-tradeRoot.renameInput.handlers.keydown({ key: 'Escape', preventDefault() {} });
-assert.equal(context.tradeWarehouseSettings.warehouses[3].name, '材料仓', 'Esc 取消仓库改名');
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'warehouse-4');
+managerNames.set('warehouse-4', { value: '材料仓', focus() {} });
+managerList.querySelectorAll('[data-trade-warehouse-rename]')[3].onclick();
+assert.equal(context.tradeWarehouseSettings.warehouses[3].name, '材料仓');
+inventory[1].warehouseId = 'warehouse-4';
+inventory[1].note = '多行\n备注';
+managerList.querySelectorAll('[data-trade-warehouse-delete]')[3].onclick();
+assert.match(element('#trade-warehouse-delete-summary').textContent, /1 条材料/);
+element('#trade-warehouse-delete-confirm').onclick();
+assert.equal(inventory[1].warehouseId, 'warehouse-4', '非空仓库未选择接收方不能删除');
+element('#trade-warehouse-delete-target').value = 'warehouse-2';
+element('#trade-warehouse-delete-confirm').onclick();
+assert.equal(inventory[1].warehouseId, 'warehouse-2');
+assert.equal(inventory[1].note, '多行\n备注', '迁移保留备注');
+assert.deepEqual([inventory[1].groups, inventory[1].unitPrice], [25, 120]);
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'warehouse-2');
+assert.equal(context.tradeWarehouseSettings.warehouses.length, 3);
+tradeRoot.tabs[0].click();
+assert.equal((tradeRoot.innerHTML.match(/云杉原木<\/button>/g) || []).length, 2, '总览不合并不同仓库中的同种材料');
+tradeRoot.controls.get('#trade-warehouse-search').value = '多行';
+listeners.get('#trade-warehouse-search:input')({ isComposing: false });
+assert.equal((tradeRoot.innerHTML.match(/云杉原木<\/button>/g) || []).length, 1, '总览下方搜索可按备注筛选所有仓库');
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'overview');
+tradeRoot.tabs[2].click();
+assert.match(tradeRoot.innerHTML, /云杉原木/, '当前仓库搜索可按备注筛选');
+tradeRoot.tabs[1].click();
+assert.doesNotMatch(tradeRoot.innerHTML, /云杉原木<\/button>/, '仓库搜索不会查找其他仓库');
+tradeRoot.controls.get('#trade-global-search').value = '多行';
+listeners.get('#trade-global-search:input')({ isComposing: false });
+assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'overview');
+assert.equal(context.state.tradeWarehouseSearch, '', '全局搜索清空视图搜索');
+assert.equal((tradeRoot.innerHTML.match(/云杉原木<\/button>/g) || []).length, 1, '全局搜索也可按备注筛选');
+tradeRoot.tabs[1].click();
 const restored = context.normalizeTradeWarehouseSettings(JSON.parse(JSON.stringify(context.tradeWarehouseSettings)));
-assert.equal(restored.activeWarehouseId, 'warehouse-4', '重载后保留当前仓库');
-assert.equal(restored.warehouses[3].name, '材料仓', '重载后保留仓库改名');
-assert.equal(restored.customCategories[0].name, '分类二', '重载后保留全局自建分类');
+assert.equal(restored.activeWarehouseId, 'warehouse-1');
+assert.equal(restored.customCategories[0].name, '分类二');
+assert.equal(context.normalizeTradeWarehouseSettings({ warehouses: [{ id: 'warehouse-3', name: '唯一仓库' }] }).warehouses.length, 1);
+context.tradeWarehouseSettings.warehouses = [context.tradeWarehouseSettings.warehouses[0]];
+context.openTradeWarehouseDialog();
+assert.match(managerList.innerHTML, /至少保留一个仓库/, '最后一个仓库不可删除');
 assert.match(css, /\.trade-warehouse-tabs \{[^}]*overflow-x: auto;/, '窄窗口横向滚动仓库标题');
-assert.match(css, /\.trade-warehouse-add \{[^}]*margin-left: auto;/, '加号固定在标签行最右侧');
 assert.match(css, /\.trade-inventory-help-tip \{[^}]*max-width: min\(480px, calc\(100vw - 32px\)\)/, '提示框限制在窄窗口内');
 
 const helpHandlers = {}, buttonHandlers = {}, documentHandlers = {};
