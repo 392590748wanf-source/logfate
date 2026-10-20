@@ -4096,6 +4096,32 @@ window.addEventListener('load', async () => {
     });
   };
   let tradeWarehouseClickTimer = null;
+  let tradeInventoryHelpListeners = null;
+  const tradeInventoryHelpText = '独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑并移动仓库；双击单价或库存组数可直接修改，右键快捷操作仍可使用。分类可自行选择或新建。';
+  const bindTradeInventoryHelp = root => {
+    const help = root.querySelector('#trade-inventory-help');
+    const button = root.querySelector('#trade-inventory-help-button');
+    const tip = root.querySelector('#trade-inventory-help-tip');
+    if (!help || !button || !tip) return;
+    const controller = new AbortController();
+    tradeInventoryHelpListeners = controller;
+    let hovered = false, keyboardFocused = false, pinned = false, dismissed = false;
+    const update = () => {
+      tip.hidden = dismissed || !(hovered || keyboardFocused || pinned);
+      button.setAttribute('aria-expanded', String(!tip.hidden));
+    };
+    const close = () => {
+      hovered = false; keyboardFocused = false; pinned = false; dismissed = true;
+      update(); button.blur();
+    };
+    help.addEventListener('mouseenter', () => { hovered = true; dismissed = false; update(); }, { signal: controller.signal });
+    help.addEventListener('mouseleave', () => { hovered = false; update(); }, { signal: controller.signal });
+    button.addEventListener('focus', () => { keyboardFocused = button.matches(':focus-visible'); dismissed = false; update(); }, { signal: controller.signal });
+    button.addEventListener('blur', () => { keyboardFocused = false; update(); }, { signal: controller.signal });
+    button.addEventListener('click', () => { pinned = !pinned; dismissed = false; update(); }, { signal: controller.signal });
+    document.addEventListener('pointerdown', event => { if (!help.contains(event.target)) close(); }, { signal: controller.signal });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !tip.hidden) close(); }, { signal: controller.signal });
+  };
   const renameTradeWarehouse = (button, warehouse) => {
     const input = document.createElement('input');
     input.className = 'trade-warehouse-rename';
@@ -4122,6 +4148,8 @@ window.addEventListener('load', async () => {
     input.focus(); input.select();
   };
   function renderTrade() {
+    tradeInventoryHelpListeners?.abort();
+    tradeInventoryHelpListeners = null;
     if (tradeWarehouseClickTimer) { clearTimeout(tradeWarehouseClickTimer); tradeWarehouseClickTimer = null; }
     if (activeTradePopover) hideTradeMarketPopover();
     const root = document.querySelector('#trade');
@@ -4136,9 +4164,10 @@ window.addEventListener('load', async () => {
       }).join('')}</tbody></table></div></section>`;
     }).join('');
     const warehouseTabs = tradeWarehouseSettings.warehouses.map(warehouse => `<button type="button" role="tab" class="trade-warehouse-tab${warehouse.id === tradeWarehouseSettings.activeWarehouseId ? ' active' : ''}" aria-selected="${warehouse.id === tradeWarehouseSettings.activeWarehouseId}" data-trade-warehouse="${escapeTradeHtml(warehouse.id)}" title="双击修改仓库名称">${escapeTradeHtml(warehouse.name)}</button>`).join('');
-    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><h1>我的库存材料</h1><div class="sub">独立的待售材料清单，不会影响采购、制作或潜水艇库存。普通材料 999 个 / 组，水晶 9999 个 / 组；普通材料合价按组数 × 1000 × 单价，水晶按组数 × 10000 × 单价计算。点击材料名称可编辑并移动仓库；双击单价或库存组数可直接修改，右键快捷操作仍可使用。分类可自行选择或新建。</div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-manage-categories" type="button" class="btn secondary">管理分类</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div><div class="trade-warehouse-nav"><div class="trade-warehouse-tabs" role="tablist" aria-label="库存仓库">${warehouseTabs}</div><button id="trade-add-warehouse" type="button" class="btn secondary trade-warehouse-add" aria-label="新增仓库" title="新增仓库">＋</button></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">当前仓库尚未添加材料。</div>'}`;
+    const inventoryContent = `<div class="header"><div><div class="meta">交易市场 · 本机数据</div><div class="trade-inventory-heading"><h1>我的库存材料</h1><span id="trade-inventory-help" class="trade-inventory-help"><button id="trade-inventory-help-button" type="button" aria-label="查看库存材料说明" aria-controls="trade-inventory-help-tip" aria-describedby="trade-inventory-help-tip" aria-expanded="false">?</button><span id="trade-inventory-help-tip" class="trade-inventory-help-tip" role="tooltip" hidden>${escapeTradeHtml(tradeInventoryHelpText)}</span></span></div></div><div class="trade-actions"><button id="trade-toggle-total" type="button" class="btn secondary" aria-pressed="${state.tradeHideTotal}">${showTotal ? '隐藏合价' : '显示合价'}</button><button id="trade-refresh-market" class="btn secondary" ${state.marketRefreshing ? 'disabled' : ''}>${state.marketRefreshing ? '正在刷新…' : '刷新市场参考'}</button><button id="trade-manage-categories" type="button" class="btn secondary">管理分类</button><button id="trade-add-listing" class="btn">+ 添加材料</button></div></div><div class="trade-warehouse-nav"><div class="trade-warehouse-tabs" role="tablist" aria-label="库存仓库">${warehouseTabs}</div><button id="trade-add-warehouse" type="button" class="btn secondary trade-warehouse-add" aria-label="新增仓库" title="新增仓库">＋</button></div>${categorySections ? `<div class="trade-category-sections">${categorySections}</div>` : '<div class="empty trade-empty">当前仓库尚未添加材料。</div>'}`;
     const recruitmentContent = `<div class="trade-unavailable"><div class="meta">交易市场 · 招募市场</div><h1>招募市场准备中</h1><p>当前版本仅保存你的本机待售材料，不会上传任何库存、采购、成本或销售数据。</p><p>开放前将接入账号、公开上架、服务器筛选、分页浏览、下架与举报机制；届时仅同步你主动公开的材料报价。</p></div>`;
     root.innerHTML = state.tradeView === 'inventory' ? inventoryContent : recruitmentContent;
+    bindTradeInventoryHelp(root);
     root.querySelector('#trade-toggle-total')?.addEventListener('click', () => { state.tradeHideTotal = !state.tradeHideTotal; renderTrade(); });
     root.querySelector('#trade-add-listing')?.addEventListener('click', () => openTradeListingDialog());
     root.querySelector('#trade-manage-categories')?.addEventListener('click', () => openTradeCategoryDialog());

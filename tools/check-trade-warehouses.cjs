@@ -135,9 +135,12 @@ context.tradeListingCategory = listing => listing.category;
 context.revalidateTradeInventorySources = () => {};
 context.setTimeout = setTimeout;
 context.clearTimeout = clearTimeout;
-vm.runInContext(between('  let tradeWarehouseClickTimer =', '  // 默认方案一') + '\nthis.renderTrade = renderTrade;', context);
+vm.runInContext(between('  let tradeWarehouseClickTimer =', '  // 默认方案一') + '\nthis.renderTrade = renderTrade; this.bindTradeInventoryHelp = bindTradeInventoryHelp;', context);
 context.renderTrade();
 assert.match(tradeRoot.innerHTML, /仓库一.*仓库二.*仓库三/);
+assert.match(tradeRoot.innerHTML, /id="trade-inventory-help-tip"[^>]*hidden/, '使用说明默认隐藏在问号提示内');
+assert.match(tradeRoot.innerHTML, /普通材料 999 个 \/ 组/, '保留完整的库存说明');
+assert.doesNotMatch(tradeRoot.innerHTML, /<div class="sub">独立的待售材料清单/, '不再常驻显示说明段落');
 assert.match(tradeRoot.innerHTML, /云杉原木/);
 tradeRoot.tabs[1].onclick({ detail: 0 });
 assert.equal(context.tradeWarehouseSettings.activeWarehouseId, 'warehouse-2');
@@ -160,5 +163,40 @@ assert.equal(restored.warehouses[3].name, '材料仓', '重载后保留仓库改
 assert.equal(restored.customCategories[0].name, '分类二', '重载后保留全局自建分类');
 assert.match(css, /\.trade-warehouse-tabs \{[^}]*overflow-x: auto;/, '窄窗口横向滚动仓库标题');
 assert.match(css, /\.trade-warehouse-add \{[^}]*margin-left: auto;/, '加号固定在标签行最右侧');
+assert.match(css, /\.trade-inventory-help-tip \{[^}]*max-width: min\(480px, calc\(100vw - 32px\)\)/, '提示框限制在窄窗口内');
+
+const helpHandlers = {}, buttonHandlers = {}, documentHandlers = {};
+const tip = { hidden: true };
+const button = {
+  expanded: 'false', focusedByKeyboard: false,
+  addEventListener(name, handler) { buttonHandlers[name] = handler; },
+  matches() { return this.focusedByKeyboard; },
+  setAttribute(name, value) { if (name === 'aria-expanded') this.expanded = value; },
+  blur() { buttonHandlers.blur?.(); }
+};
+const help = {
+  addEventListener(name, handler) { helpHandlers[name] = handler; },
+  contains(target) { return target === this || target === button || target === tip; }
+};
+context.AbortController = class { constructor() { this.signal = {}; } abort() { this.aborted = true; } };
+context.document = {
+  querySelector: selector => ({ '#trade-inventory-help': help, '#trade-inventory-help-button': button, '#trade-inventory-help-tip': tip })[selector],
+  addEventListener(name, handler) { documentHandlers[name] = handler; }
+};
+context.bindTradeInventoryHelp({ querySelector: context.document.querySelector });
+helpHandlers.mouseenter();
+assert.equal(tip.hidden, false, '鼠标悬停显示提示');
+helpHandlers.mouseleave();
+assert.equal(tip.hidden, true, '鼠标移开隐藏提示');
+button.focusedByKeyboard = true;
+buttonHandlers.focus();
+assert.equal(tip.hidden, false, '键盘聚焦显示提示');
+documentHandlers.keydown({ key: 'Escape' });
+assert.equal(tip.hidden, true, 'Esc 关闭提示');
+button.focusedByKeyboard = false;
+buttonHandlers.click();
+assert.equal(tip.hidden, false, '点击固定打开提示');
+documentHandlers.pointerdown({ target: {} });
+assert.equal(tip.hidden, true, '点击外部关闭提示');
 assert.ok(saved >= 6 && rendered >= 3);
 console.log('Trade warehouse and custom category checks passed.');

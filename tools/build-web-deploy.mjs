@@ -1,4 +1,5 @@
-import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -45,6 +46,18 @@ async function main() {
       await copyFile(source, target);
     }
   }
+
+  // HTML 本身会重新校验；让它为每版静态脚本和样式指向新的 URL，避开浏览器旧缓存。
+  const htmlPath = join(output, "index.html");
+  let html = await readFile(htmlPath, "utf8");
+  const assetPattern = /\b(src|href)="([^"?]+\.(?:js|css))"/g;
+  const paths = [...new Set([...html.matchAll(assetPattern)].map(match => match[2]))];
+  const versions = new Map(await Promise.all(paths.map(async path => {
+    const content = await readFile(join(output, path));
+    return [path, createHash("sha256").update(content).digest("hex").slice(0, 12)];
+  })));
+  html = html.replace(assetPattern, (_match, attribute, path) => `${attribute}="${path}?v=${versions.get(path)}"`);
+  await writeFile(htmlPath, html);
 
   const largeFiles = [];
   async function checkFiles(directory) {

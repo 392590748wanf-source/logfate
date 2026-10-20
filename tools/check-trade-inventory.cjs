@@ -153,7 +153,8 @@ vm.runInContext(script.slice(submitStart, submitEnd), context);
   const displayState = { tradeView: 'inventory', tradeHideTotal: false, marketRefreshing: false };
   let totalCalculations = 0;
   const displayContext = vm.createContext({
-    state: displayState, activeTradePopover: null, tradeWarehouseClickTimer: null,
+    state: displayState, activeTradePopover: null, tradeWarehouseClickTimer: null, tradeInventoryHelpListeners: null,
+    tradeInventoryHelpText: '库存材料说明', bindTradeInventoryHelp() {},
     document: { querySelector: () => tradeRoot },
     tradeCategoryOrder: ['botanist'], tradeCategoryLabels: { botanist: '园艺' },
     tradeCategoryIds: () => ['botanist'], tradeCategoryLabel: () => '园艺', escapeTradeHtml: value => String(value),
