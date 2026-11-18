@@ -42,6 +42,7 @@ const sandbox = createSandbox();
 for (const file of ['base-materials.js', 'submarine-data.js', 'hqhelper-fallback.js', 'retainer-data.js', 'material-sources.js', 'craft-scrip-data.js', 'craft-scrips.js', 'levequests.js', 'levequest-catalog.js', 'fisher-leves.js', 'levequest-recipes.js', 'levequest-material-sources.js']) {
   await execute(sandbox, file);
 }
+await execute(sandbox, 'recipe-synthesis-data.js');
 
 const equipmentSourceAudit = () => {
   const materials = sandbox.window.FF14_BASE_MATERIALS || {};
@@ -127,6 +128,7 @@ const bundle = {
     fisherLeves: sandbox.window.FF14_FISHER_LEVES,
     levequestRecipes: sandbox.window.FF14_LEVEQUEST_RECIPES,
     levequestMaterialSources: sandbox.window.FF14_LEVEQUEST_MATERIAL_SOURCES,
+    recipeSynthesis: sandbox.window.FF14_RECIPE_SYNTHESIS,
     materialSourceAudit: { equipment: equipmentSourceAudit(), craftScrips: craftScripAudit(), levequests: levequestSourceAudit() }
   }
 };

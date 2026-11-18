@@ -3,355 +3,196 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const root = path.join(__dirname, '..');
-const script = fs.readFileSync(path.join(root, 'fantasy.js'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'app.css'), 'utf8');
-const elements = new Map();
-let tradeSelectButtons = [];
-const element = id => {
-  if (!elements.has(id)) elements.set(id, {
-    value: '', textContent: '', innerHTML: '', hidden: false, disabled: false,
-    showModal() { this.open = true; }, close() { this.open = false; }, focus() { this.focused = true; }
-  });
-  return elements.get(id);
+const source = fs.readFileSync(path.join(__dirname, '..', 'fantasy.js'), 'utf8');
+const css = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
+const between = (start, end) => {
+  const left = source.indexOf(start), right = source.indexOf(end, left);
+  assert.ok(left >= 0 && right > left, `missing section: ${start}`);
+  return source.slice(left, right);
 };
-const original = { id: 'listing-1', itemId: '1', name: '云杉原木', category: 'botanist', categoryOrigin: 'manual', groups: 2, groupSize: 999, unitPrice: 100, createdAt: '原入库时间' };
-const inventory = [original];
-const materials = [{ uid: '1', n: '云杉原木' }, { uid: '2', n: '绿金矿' }];
-const warehouses = { warehouses: [{ id: 'warehouse-1', name: '仓库一' }, { id: 'warehouse-2', name: '仓库二' }, { id: 'warehouse-3', name: '仓库三' }], customCategories: [], activeWarehouseId: 'warehouse-1', nextWarehouseNumber: 4 };
-let resolution = { ready: false, categories: [], status: 'failed' };
-let saves = 0, renders = 0, indexLoads = 0, iconLoads = 0;
+const materials = [
+  { uid: '1', n: '云杉原木', groupSize: 999 },
+  { uid: '2', n: '火之碎晶', groupSize: 9999 }
+];
+const legacy = [
+  { id: 'old-wood', itemId: '1', name: '云杉原木', groups: 2, groupSize: 999, unitPrice: 100, total: 200000, category: 'botanist' },
+  { id: 'old-crystal', itemId: '2', name: '火之碎晶', groups: 1, groupSize: 9999, unitPrice: 7, total: 70000, category: 'crystal' }
+];
+const storage = new Map([['ff14-trade-inventory', JSON.stringify(legacy)]]);
 const context = vm.createContext({
-  document: { querySelector: element, querySelectorAll: selector => {
-    if (selector !== '[data-trade-select]') return [];
-    tradeSelectButtons = [...element('#trade-listing-results').innerHTML.matchAll(/data-trade-select="([^"]+)"/g)]
-      .map(([, id]) => ({ dataset: { tradeSelect: id }, onclick: null }));
-    return tradeSelectButtons;
-  } },
-  state: { tradeEditingId: null, tradeSearch: '' },
-  tradeInventory: inventory,
-  tradeWarehouseSettings: warehouses,
-  tradeWarehouseId: listing => listing.warehouseId || 'warehouse-1',
-  tradeCategoryIds: () => ['botanist', 'miner', 'combat', 'crystal', 'other', ...warehouses.customCategories.map(category => category.id)],
-  tradeCategoryLabel: id => ({ botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' }[id] || warehouses.customCategories.find(category => category.id === id)?.name),
-  escapeTradeHtml: value => String(value),
-  tradeMaterial: id => materials.find(material => material.uid === String(id)),
-  tradeListingCategory: listing => listing.category || 'other',
-  tradeSourceResolution: () => resolution,
-  tradeCategoryOrder: ['botanist', 'miner', 'combat', 'crystal', 'other'],
-  tradeCategoryLabels: { botanist: '园艺', miner: '采矿', combat: '战职', crystal: '水晶', other: '其他' },
-  hideTradeContextMenu() {}, loadItemIndex() { indexLoads++; }, loadItemIconIndex() { iconLoads++; },
-  itemLabelMarkup: (_id, name) => name, marketPriceLabel: () => '未获取',
-  tradeGroupSize: () => 999, tradePriceMultiplier: () => 1000,
-  money: value => `${value} G`, otherSearchResults: query => materials.filter(item => item.n.includes(query)),
-  ensureTradeMaterial: candidate => candidate,
-  fetchTradeSource: async () => resolution, fetchGarlandIcon() {},
-  save: () => { saves++; }, renderTrade: () => { renders++; }, refreshMarket: async () => {},
-  Date, Math
+  localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
+  tradeInventory: legacy, tradeInventoryStorageKey: 'ff14-trade-inventory', data: { m: materials }, Date, Math
 });
-const editorStart = script.indexOf('  const renderTradeCategorySelect =');
-const editorEnd = script.indexOf('  const hideTradeContextMenu =', editorStart);
-const submitStart = script.indexOf("  document.querySelector('#trade-listing-form').onsubmit =", editorEnd);
-const submitEnd = script.indexOf("  document.querySelector('#trade-quantity-form').onsubmit =", submitStart);
-assert.ok(editorStart > 0 && editorEnd > editorStart && submitStart > editorEnd && submitEnd > submitStart);
-vm.runInContext(script.slice(editorStart, editorEnd), context);
-vm.runInContext(script.slice(submitStart, submitEnd), context);
+vm.runInContext(between('  const tradeWarehouseStorageKey =', '  const tradeSourceCacheStorageKey ='), context);
+assert.deepEqual(legacy.map(row => row.quantity), [1998, 9999], '旧组数换成准确的实际数量');
+assert.ok(legacy.every(row => row.priceMode === 'group'), '旧库存沿用按组计价');
+assert.deepEqual(legacy.map(row => row.total), [200000, 70000], '迁移不改账面合价');
+assert.equal(JSON.parse(storage.get('ff14-trade-inventory'))[0].quantity, 1998, '迁移持久化，可供备份');
+
+context.tradeMaterial = id => materials.find(row => row.uid === String(id));
+context.isTradeCrystal = row => row?.n?.includes('碎晶') || Number(row?.groupSize) === 9999;
+context.money = value => `${value} G`;
+vm.runInContext(between('  const tradeGroupSize =', '  let activeTradePopover =') + '\nthis.tradeMath = { tradeGroupSize, tradeQuantity, tradeQuantityLabel, tradeBillableQuantity, tradeTotal, tradeTotalLabel };', context);
+const math = context.tradeMath;
+assert.equal(math.tradeTotal(legacy[0]), 200000, '普通材料历史合价保持不变');
+assert.equal(math.tradeTotal(legacy[1]), 70000, '水晶历史合价保持不变');
+assert.equal(math.tradeQuantityLabel({ itemId: '1', quantity: 500 }), '500 个');
+assert.equal(math.tradeQuantityLabel({ itemId: '1', quantity: 999 }), '1 组');
+assert.equal(math.tradeQuantityLabel({ itemId: '1', quantity: 1200 }), '1 组 201 个');
+assert.equal(math.tradeQuantityLabel({ itemId: '2', quantity: 10000 }), '1 组 1 个');
+assert.equal(math.tradeTotal({ itemId: '1', quantity: 1200, priceMode: 'group', unitPrice: 100 }), 120100);
+assert.equal(math.tradeTotal({ itemId: '1', quantity: 1200, priceMode: 'item', unitPrice: 100 }), 120000);
+assert.equal(math.tradeTotal({ itemId: '2', quantity: 10000, priceMode: 'group', unitPrice: 7 }), 70007);
+assert.equal(math.tradeTotal({ itemId: '2', quantity: 10000, priceMode: 'item', unitPrice: 7 }), 70000);
+assert.equal(math.tradeTotal({ itemId: '1', quantity: 500, priceMode: 'group', unitPrice: null }), null);
+assert.equal(math.tradeTotalLabel({ itemId: '1', quantity: 500, unitPrice: null }), '—');
+
+const elements = new Map();
+const element = selector => {
+  if (!elements.has(selector)) elements.set(selector, { value: '', hidden: true, textContent: '', focus() { this.focused = true; }, close() { this.open = false; } });
+  return elements.get(selector);
+};
+let saves = 0, renders = 0;
+context.document = { querySelector: element };
+context.state = { tradeEditingId: null };
+context.tradeCategoryIds = () => ['botanist', 'crystal', 'other'];
+context.tradeLocations = () => [{ id: 'bag', name: '背包' }];
+context.tradeWarehouseSettings = { warehouses: [{ id: 'warehouse-1', name: '角色一' }], activeWarehouseId: 'overview', activeLocationId: 'all' };
+context.tradeGroupSize = math.tradeGroupSize;
+context.tradePriceMultiplier = row => Number(row?.groupSize) === 9999 ? 10000 : 1000;
+context.save = () => { saves++; };
+context.renderTrade = () => { renders++; };
+context.refreshMarket = async () => {};
+vm.runInContext(between("  document.querySelector('#trade-listing-form').onsubmit =", "  const normalizeSubmarineSalePrice ="), context);
+const fill = ({ itemId = '1', quantity = '500', price = '', mode = 'group', category = 'botanist' } = {}) => {
+  element('#trade-listing-item-id').value = itemId;
+  element('#trade-listing-quantity').value = quantity;
+  element('#trade-listing-unit-price').value = price;
+  element('#trade-listing-price-mode').value = mode;
+  element('#trade-listing-category').value = category;
+  element('#trade-listing-warehouse').value = 'warehouse-1';
+  element('#trade-listing-location').value = 'bag';
+  element('#trade-listing-note').value = '第一行\n第二行';
+};
 
 (async () => {
-  context.openTradeListingDialog(original);
-  assert.equal(element('#trade-listing-dialog').open, true);
-  assert.equal(element('#trade-listing-delete').hidden, false, '已有材料的详情可删除');
-  assert.equal(element('#trade-listing-groups').value, 2);
-  assert.equal(element('#trade-listing-unit-price').value, 100);
-  assert.equal(element('#trade-listing-warehouse').value, 'warehouse-1');
-  assert.equal(element('#trade-listing-category').value, 'botanist');
-  assert.match(element('#trade-listing-category-note').textContent, /自行选择/);
-  element('#trade-listing-groups').value = '3';
-  element('#trade-listing-unit-price').value = '150';
+  fill();
   await element('#trade-listing-form').onsubmit({ preventDefault() {} });
-  assert.equal(saves, 1, '来源暂时不可用时仍保存原材料编辑');
-  assert.equal(renders, 1);
-  assert.equal(inventory[0].total, 450000);
-  assert.equal(inventory[0].groups, 3);
-  assert.equal(inventory[0].unitPrice, 150);
-  assert.equal(inventory[0].category, 'botanist');
-  assert.equal(inventory[0].categoryOrigin, 'manual');
-  assert.equal(inventory[0].warehouseId, 'warehouse-1');
-  assert.equal(inventory[0].createdAt, '原入库时间');
-  assert.equal(JSON.parse(JSON.stringify(inventory))[0].groups, 3, '重载所用的本机记录保留新组数');
+  const created = legacy[0];
+  assert.equal(created.quantity, 500);
+  assert.equal(created.groups, 0, '不足一组仍保留零散库存');
+  assert.equal(created.priceMode, 'group', '新增默认按组计价');
+  assert.equal(created.unitPrice, null, '不填单价可保存');
+  assert.equal(created.total, null, '无价格不伪装成 0 G');
+  assert.equal(created.note, '第一行\n第二行', '备注保留在详情数据');
+  assert.deepEqual(JSON.parse(JSON.stringify(created)).quantity, 500, 'JSON 往返保留零散数量');
+  assert.equal(JSON.parse(JSON.stringify(created)).priceMode, 'group', 'JSON 往返保留计价方式');
+  assert.equal(saves, 1);
 
-  context.openTradeListingDialog(inventory[0]);
-  element('#trade-listing-item-id').value = '2';
-  element('#trade-listing-category').value = 'miner';
-  element('#trade-listing-warehouse').value = 'warehouse-2';
+  context.state.tradeEditingId = created.id;
+  fill({ quantity: '1200', price: '100', mode: 'item' });
   await element('#trade-listing-form').onsubmit({ preventDefault() {} });
-  assert.equal(saves, 2, '来源未核验也可按用户自选分类保存');
-  assert.equal(inventory[0].category, 'miner');
-  assert.equal(inventory[0].warehouseId, 'warehouse-2', '编辑可移动仓库');
-  assert.equal(warehouses.activeWarehouseId, 'warehouse-2', '移动后切换目标仓库');
+  assert.equal(legacy[0].quantity, 1200);
+  assert.equal(legacy[0].priceMode, 'item');
+  assert.equal(legacy[0].total, 120000);
+  context.state.tradeEditingId = created.id;
+  fill({ quantity: '1200', price: '100', mode: 'group' });
+  await element('#trade-listing-form').onsubmit({ preventDefault() {} });
+  assert.equal(legacy[0].total, 120100);
+  context.state.tradeEditingId = created.id;
+  fill({ quantity: '1.5', price: '100' });
+  await element('#trade-listing-form').onsubmit({ preventDefault() {} });
+  assert.match(element('#trade-listing-error').textContent, /整数/);
+  assert.equal(legacy[0].quantity, 1200, '非法数量不会覆盖记录');
 
-  element('#trade-listing-search').focused = false;
-  context.openTradeListingDialog();
-  assert.equal(element('#trade-listing-delete').hidden, true, '新增材料时不显示删除按钮');
-  const search = element('#trade-listing-search');
-  assert.equal(search.focused, true, '添加弹窗打开后搜索框立即获得焦点');
-  assert.equal(indexLoads, 0, '打开添加弹窗不立即加载完整道具索引');
-  assert.equal(iconLoads, 0, '打开添加弹窗不立即加载图标索引');
-  search.value = '矿';
-  search.oninput();
-  assert.equal(element('#trade-listing-results').innerHTML, '', '输入时不自动重新打开候选列表');
-  element('#trade-listing-search-button').onclick();
-  assert.equal(indexLoads, 1, '明确搜索时才加载完整道具索引');
-  assert.equal(iconLoads, 1, '明确搜索时才加载图标索引');
-  assert.match(element('#trade-listing-results').innerHTML, /绿金矿/, '点击搜索才显示候选材料');
-  const chosen = tradeSelectButtons[0];
-  chosen.onclick();
-  assert.equal(element('#trade-listing-item-id').value, '2');
-  assert.equal(element('#trade-listing-results').innerHTML, '', '选中后立即收起候选列表');
-  context.state.refreshTradeListingDialog();
-  assert.equal(element('#trade-listing-results').innerHTML, '', '异步来源刷新不重新打开候选列表');
-  search.value = '云';
-  search.oninput();
-  assert.equal(element('#trade-listing-item-id').value, '', '修改搜索词时不能误保存之前选中的材料');
-  search.onkeydown({ key: 'Enter', preventDefault() {} });
-  assert.match(element('#trade-listing-results').innerHTML, /云杉原木/, '回车明确搜索后可以再次显示候选列表');
-  context.removeTradeListing = () => false;
-  context.openTradeListingDialog(inventory[0]);
-  element('#trade-listing-delete').onclick();
-  assert.equal(element('#trade-listing-dialog').open, true, '取消删除后保持编辑弹窗');
-  context.removeTradeListing = () => true;
-  element('#trade-listing-delete').onclick();
-  assert.equal(element('#trade-listing-dialog').open, false, '确认删除后关闭编辑弹窗');
+  element('#trade-quantity-id').value = created.id;
+  element('#trade-quantity-value').value = '999';
+  element('#trade-quantity-form').onsubmit({ preventDefault() {} });
+  assert.equal(legacy[0].quantity, 999);
+  assert.equal(legacy[0].total, 100000, '右键数量编辑沿用单条计价方式');
+  element('#trade-unit-price-id').value = created.id;
+  element('#trade-unit-price-value').value = '';
+  element('#trade-unit-price-form').onsubmit({ preventDefault() {} });
+  assert.equal(legacy[0].unitPrice, null, '右键价格编辑可清空');
+  assert.equal(legacy[0].total, null);
+  assert.equal(saves, 5);
+  assert.equal(renders, 5);
 
-  assert.match(script, /<button type="button" class="trade-context-target trade-name-edit" data-trade-name-context=/, '材料名称使用原生键盘可操作按钮');
-  assert.match(script, /target\.onclick = \(\) => \{ if \(listing\) openTradeListingDialog\(listing\); \}/, '点击名称打开现有编辑弹窗');
-  assert.match(script, /target\.oncontextmenu = event => listing && showTradeContextMenu\(event, listing, 'name'\)/, '保留右键菜单');
-  assert.match(css, /\.trade-market-popover \{[^}]*width: max-content;[^}]*max-width: min\(420px, calc\(100vw - 24px\)\)/, '悬浮框按内容收紧且受视口限制');
-  assert.match(css, /\.trade-category-sections \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/, '宽于 1280px 时分类表恢复双栏');
-  assert.match(css, /\.ledger\.trade-ledger \{[^}]*min-width: 0;/, '双栏内库存表按可用宽度压缩');
-  assert.match(css, /\.trade-category-section \.table-wrap \{[^}]*overflow-x: auto;/, '狭窄窗口不应直接裁掉库存列');
-  assert.match(css, /@media \(max-width: 1280px\) \{\s*\.trade-category-sections \{ grid-template-columns: 1fr; \}/, '客户端小窗口改为单栏库存表');
-  assert.match(script, /<th>材料<\/th>\$\{overview \? '<th>仓库<\/th>' : ''\}<th>单价<\/th><th>库存组数<\/th>\$\{showTotal \? '<th>合价<\/th>' : ''\}<th>市场参考价<\/th><th>备注<\/th>/, '总览仓库列、备注列和可隐藏的合价列');
-  assert.match(script, /\$\{showTotal \? `<td class="price">\$\{money\(tradeTotal\(listing\)\)\}<\/td>` : ''\}/, '合价隐藏只影响展示');
-  assert.match(script, /id="trade-toggle-total"[^>]*aria-pressed="\$\{state\.tradeHideTotal\}"/, '库存界面有合价显隐按钮');
-  assert.match(script, /state\.tradeHideTotal = !state\.tradeHideTotal; renderTrade\(\)/, '切换后重新渲染库存表');
-  assert.match(css, /\.trade-ledger-overview \.trade-col-note \{ width: 20%; \}/, '总览双栏为备注保留列宽');
-  assert.match(css, /\.trade-ledger-overview\.trade-ledger-no-total \.trade-col-note \{ width: 28%; \}/, '隐藏合价后重新分配总览备注列宽');
-  assert.match(script, /id="trade-listing-delete"[^>]*hidden>删除材料<\/button>/, '删除按钮只放在材料详情弹窗');
-  assert.match(script, /deleteButton\.hidden = !listing/, '新增材料隐藏删除按钮');
-  assert.match(script, /localStorage\.setItem\(tradeSourceCacheStorageKey, JSON\.stringify\(tradeSourceCache\)\)/, '逐项来源核验只写缓存，不重复序列化整本账');
-  assert.match(script, /data-trade-context-delete.*removeTradeListing\(listing\.id\)/s, '右键删除沿用相同逻辑');
-  assert.match(script, /width = popover\.getBoundingClientRect\(\)\.width/, '定位采用实际悬浮框宽度');
-  assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'groups'\); \}/, '双击组数进入行内编辑');
-  assert.match(script, /target\.ondblclick = \(\) => \{ if \(listing\) editTradeCell\(target, listing, 'unitPrice'\); \}/, '双击单价进入行内编辑');
-  assert.match(css, /\.trade-inline-input \{[^}]*width: 100%/, '行内输入框适应单元格宽度');
-  assert.match(script, /id="trade-listing-note"[^>]*textarea|id="trade-listing-note"/, '材料详情可编辑备注');
-  assert.match(script, /note: document\.querySelector\('#trade-listing-note'\)\.value/, '材料详情保存备注');
-  assert.match(css, /\.trade-note-text \{[^}]*white-space: pre-wrap;/, '备注换行保留在表格内');
+  const toggle = { addEventListener(_name, handler) { this.click = handler; } };
+  const tradeRoot = { innerHTML: '', querySelector: selector => selector === '#trade-toggle-prices' ? toggle : null, querySelectorAll: () => [] };
+  context.document = { querySelector: selector => selector === '#trade' ? tradeRoot : element(selector) };
+  context.state = { tradeView: 'inventory', tradeHidePrices: true, tradeGlobalSearch: '', tradeWarehouseSearch: '', marketRefreshing: false };
+  context.tradeInventoryHelpListeners = null;
+  context.activeTradePopover = null;
+  context.tradeInventoryHelpText = '库存材料说明';
+  context.tradeWarehouseSettings = { warehouses: [{ id: 'warehouse-1', name: '角色一' }], retainers: {}, activeWarehouseId: 'overview', activeLocationId: 'all' };
+  context.tradeWarehouseId = () => 'warehouse-1';
+  context.tradeLocationId = () => 'bag';
+  context.tradeLocationLabel = () => '背包';
+  context.tradeCategoryLabel = id => ({ botanist: '园艺', crystal: '水晶' }[id] || id);
+  context.tradeListingCategory = row => row.category;
+  context.tradeSearchMatches = (row, query) => `${row.name} ${row.note || ''}`.includes(query);
+  context.tradeMarketReference = () => '631 G';
+  context.itemLabelMarkup = (_id, name) => name;
+  context.escapeTradeHtml = value => String(value);
+  context.marketRefreshWarning = () => '';
+  context.marketRefreshButtonLabel = label => label;
+  context.bindTradeInventoryHelp = () => {};
+  context.revalidateTradeInventorySources = () => {};
+  vm.runInContext(between('  function renderTrade() {', '  // 默认方案一') + '\nthis.renderInventory = renderTrade;', context);
+  context.renderInventory();
+  assert.match(tradeRoot.innerHTML, /<th>市场参考价<\/th>/);
+  assert.doesNotMatch(tradeRoot.innerHTML, /<th>单价<\/th>|<th>合价<\/th>|<th>备注<\/th>/, '默认隐藏库存价并删除备注列');
+  assert.match(tradeRoot.innerHTML, /显示价格/);
+  toggle.click();
+  assert.match(tradeRoot.innerHTML, /<th>单价<\/th><th>合价<\/th>/, '点击后同时显示单价和合价');
+  assert.match(tradeRoot.innerHTML, /隐藏价格/);
+  assert.match(tradeRoot.innerHTML, /未设置/, '空价格有明确显示状态');
 
-  const renderStart = script.indexOf('  function renderTrade() {');
-  const renderEnd = script.indexOf('  // 默认方案一', renderStart);
-  assert.ok(renderStart > 0 && renderEnd > renderStart);
-  assert.doesNotMatch(script.slice(renderStart, renderEnd), /data-trade-delete|trade-col-action|<th>操作<\/th>/, '库存表不展示删除入口和操作列');
-  const totalToggle = { addEventListener: (_name, handler) => { totalToggle.click = handler; } };
-  const tradeRoot = { innerHTML: '', querySelector: selector => selector === '#trade-toggle-total' ? totalToggle : null, querySelectorAll: () => [] };
-  const displayState = { tradeView: 'inventory', tradeHideTotal: false, tradeGlobalSearch: '', tradeWarehouseSearch: '', marketRefreshing: false };
-  let totalCalculations = 0;
-  const displayContext = vm.createContext({
-    state: displayState, activeTradePopover: null, tradeWarehouseClickTimer: null, tradeInventoryHelpListeners: null,
-    tradeInventoryHelpText: '库存材料说明', bindTradeInventoryHelp() {},
-    document: { querySelector: () => tradeRoot },
-    tradeCategoryOrder: ['botanist'], tradeCategoryLabels: { botanist: '园艺' },
-    tradeCategoryIds: () => ['botanist'], tradeCategoryLabel: () => '园艺', escapeTradeHtml: value => String(value),
-    tradeWarehouseSettings: { warehouses: [{ id: 'warehouse-1', name: '仓库一' }], activeWarehouseId: 'warehouse-1' },
-    tradeWarehouseId: () => 'warehouse-1', tradeSearchMatches: () => true,
-    tradeInventory: [{ id: 'display', itemId: '1', groups: 2, unitPrice: 100 }],
-    tradeListingCategory: () => 'botanist', tradeMaterial: id => materials.find(item => item.uid === String(id)),
-    itemLabelMarkup: (_id, name) => name, money: value => `${value} G`,
-    tradeTotal: listing => { totalCalculations++; return listing.groups * 1000 * listing.unitPrice; },
-    tradeMarketReference: () => '参考', revalidateTradeInventorySources() {}
-  });
-  vm.runInContext(script.slice(renderStart, renderEnd) + '\nthis.renderTrade = renderTrade;', displayContext);
-  displayContext.renderTrade();
-  assert.match(tradeRoot.innerHTML, /<th>合价<\/th>/);
-  assert.match(tradeRoot.innerHTML, /class="price">200000 G<\/td>/);
-  assert.equal(totalCalculations, 1);
-  totalToggle.click();
-  assert.equal(displayState.tradeHideTotal, true);
-  assert.doesNotMatch(tradeRoot.innerHTML, /<th>合价<\/th>|class="price">200000 G<\/td>/);
-  assert.match(tradeRoot.innerHTML, /trade-ledger-no-total/);
-  assert.match(tradeRoot.innerHTML, /显示合价/);
-  assert.equal(totalCalculations, 1, '隐藏合价只改变显示，不修改库存金额');
-
-  const inlineStart = script.indexOf('  const editTradeCell =');
-  const inlineEnd = script.indexOf('  const revalidateTradeInventorySources =', inlineStart);
-  assert.ok(inlineStart > 0 && inlineEnd > inlineStart);
   class InlineInput {
     constructor() { this.handlers = {}; this.value = ''; }
     setAttribute() {}
     addEventListener(name, handler) { this.handlers[name] = handler; }
-    setCustomValidity(message) { this.validationMessage = message; }
+    setCustomValidity() {}
     reportValidity() { this.reported = true; }
-    focus() { this.focused = true; }
-    select() { this.selected = true; }
+    focus() {}
+    select() {}
     fire(name, event = {}) { this.handlers[name](event); }
   }
   class InlineTarget {
-    constructor(text) { this._text = text; this.input = null; this.classes = new Set(); this.classList = { add: name => this.classes.add(name), remove: name => this.classes.delete(name) }; }
+    constructor(text) { this._text = text; this.input = null; this.classList = { add() {}, remove() {} }; }
     get textContent() { return this._text; }
-    set textContent(text) { this._text = text; this.input = null; }
+    set textContent(value) { this._text = value; this.input = null; }
     querySelector() { return this.input; }
     append(input) { this.input = input; }
-    focus() { this.focused = true; }
+    focus() {}
   }
-  let inlineSaves = 0, inlineRenders = 0;
-  const inlineContext = vm.createContext({
-    document: { createElement: () => new InlineInput() },
-    hideTradeContextMenu() {}, tradeMaterial: () => materials[0], tradeGroupSize: () => 999,
-    tradeTotal: listing => listing.groups * 1000 * listing.unitPrice,
-    save: () => { inlineSaves++; }, renderTrade: () => { inlineRenders++; }, Date, Number
-  });
-  vm.runInContext(script.slice(inlineStart, inlineEnd) + '\nthis.editTradeCell = editTradeCell; this.editTradeNoteCell = editTradeNoteCell;', inlineContext);
-  const inlineListing = { itemId: '1', groups: 2, groupSize: 999, unitPrice: 100, total: 200000 };
+  context.document = { createElement: () => new InlineInput(), querySelector: selector => selector === '#trade' ? tradeRoot : element(selector) };
+  context.hideTradeContextMenu = () => {};
+  vm.runInContext(between('  const editTradeCell =', '  const revalidateTradeInventorySources =') + '\nthis.editTradeCell = editTradeCell;', context);
+  const inlineListing = { itemId: '1', quantity: 999, groups: 1, groupSize: 999, priceMode: 'group', unitPrice: 100 };
+  const quantityTarget = new InlineTarget('1 组');
+  context.editTradeCell(quantityTarget, inlineListing, 'quantity');
+  quantityTarget.input.value = '1200';
+  quantityTarget.input.fire('keydown', { key: 'Enter', preventDefault() {}, stopPropagation() {} });
+  assert.equal(inlineListing.quantity, 1200, '双击后输入的是实际个数');
+  assert.equal(inlineListing.total, 120100);
   const priceTarget = new InlineTarget('100 G');
-  inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
-  assert.equal(priceTarget.input.value, '100');
-  priceTarget.input.value = '111.5';
+  context.editTradeCell(priceTarget, inlineListing, 'unitPrice');
+  priceTarget.input.value = '';
   priceTarget.input.fire('keydown', { key: 'Enter', preventDefault() {}, stopPropagation() {} });
-  assert.equal(inlineListing.unitPrice, 111.5);
-  assert.equal(inlineListing.total, 223000);
-  assert.equal(inlineSaves, 1);
-  assert.equal(inlineRenders, 1);
+  assert.equal(inlineListing.unitPrice, null, '行内单价允许清空');
+  assert.equal(inlineListing.total, null);
 
-  const groupsTarget = new InlineTarget('2 组');
-  inlineContext.editTradeCell(groupsTarget, inlineListing, 'groups');
-  groupsTarget.input.value = '3.5';
-  groupsTarget.input.fire('keydown', { key: 'Enter', preventDefault() {}, stopPropagation() {} });
-  assert.equal(inlineListing.groups, 2, '小数组数不能保存');
-  assert.equal(inlineSaves, 1);
-  assert.equal(groupsTarget.input.reported, true);
-  groupsTarget.input.fire('keydown', { key: 'Escape', preventDefault() {}, stopPropagation() {} });
-  assert.equal(groupsTarget.textContent, '2 组', 'Esc 恢复原单元格');
-  inlineContext.editTradeCell(groupsTarget, inlineListing, 'groups');
-  groupsTarget.input.value = '4';
-  groupsTarget.input.fire('blur');
-  assert.equal(inlineListing.groups, 4, '失焦时保存有效组数');
-  assert.equal(inlineListing.total, 446000);
-  assert.equal(inlineSaves, 2);
-
-  const noteTarget = { innerHTML: '<span class="meta">添加备注</span>', input: null,
-    classList: { add() {}, remove() {} }, querySelector() { return this.input; },
-    append(input) { this.input = input; }, focus() {} };
-  inlineContext.editTradeNoteCell(noteTarget, inlineListing);
-  noteTarget.input.value = '第一行\n<&> 第二行';
-  noteTarget.input.fire('keydown', { key: 'Enter', ctrlKey: true, preventDefault() {}, stopPropagation() {} });
-  assert.equal(inlineListing.note, '第一行\n<&> 第二行', '备注原样保留换行和特殊字符');
-  assert.equal(inlineSaves, 3);
-  const noteBackup = JSON.parse(JSON.stringify(inlineListing));
-  assert.equal(noteBackup.note, inlineListing.note, 'JSON 备份往返保留备注');
-
-  inlineContext.editTradeCell(priceTarget, inlineListing, 'unitPrice');
-  priceTarget.input.value = '-1';
-  priceTarget.input.fire('blur');
-  assert.equal(inlineListing.unitPrice, 111.5, '无效单价失焦不写入账本');
-  assert.equal(inlineSaves, 3);
-
-  const deleteStart = script.indexOf('  const removeTradeListing =');
-  const deleteEnd = script.indexOf('  const showTradeContextMenu =', deleteStart);
-  assert.ok(deleteStart > 0 && deleteEnd > deleteStart);
-  const deleteInventory = [
-    { id: 'target', itemId: '1', name: '云杉原木' },
-    { id: 'keep', itemId: '2', name: '绿金矿' }
-  ];
-  const purchaseLedger = [{ itemId: '1', quantity: 5 }];
-  let confirmDelete = false, deleteSaves = 0, deleteRenders = 0, prompts = 0;
-  const deleteDialog = { open: true, close() { this.open = false; } };
-  const deleteContext = vm.createContext({
-    document: { querySelector: () => deleteDialog }, state: { tradeEditingId: 'target' },
-    tradeInventory: deleteInventory, tradeMaterial: id => materials.find(item => item.uid === String(id)),
-    tradeDisplayName: item => item.n || item.name,
-    hideTradeContextMenu() {},
-    confirm: message => { prompts++; assert.match(message, /不会删除采购/); return confirmDelete; },
-    save: () => { assert.equal(deleteDialog.open, false, '删除后先关闭编辑弹窗再保存和重绘'); deleteSaves++; }, renderTrade: () => { deleteRenders++; }
-  });
-  vm.runInContext(script.slice(deleteStart, deleteEnd) + '\nthis.removeTradeListing = removeTradeListing;', deleteContext);
-  assert.equal(deleteContext.removeTradeListing('target'), false);
-  assert.equal(deleteInventory.length, 2, '取消删除时库存不变');
-  assert.equal(deleteDialog.open, true, '取消删除保持编辑弹窗');
-  assert.equal(deleteSaves, 0);
-  confirmDelete = true;
-  assert.equal(deleteContext.removeTradeListing('target'), true);
-  assert.deepEqual(deleteInventory.map(item => item.id), ['keep'], '只删除选中的库存记录');
-  assert.equal(deleteSaves, 1);
-  assert.equal(deleteRenders, 1);
-  assert.equal(purchaseLedger.length, 1, '采购记录不受库存删除影响');
-  assert.equal(deleteContext.removeTradeListing('target'), false);
-  assert.equal(prompts, 2, '重复删除不存在记录不再弹确认');
-
-  const sourceStart = script.indexOf('  const tradeMaterial =');
-  const sourceEnd = script.indexOf('  const tradeGroupSize =', sourceStart);
-  assert.ok(sourceStart > 0 && sourceEnd > sourceStart);
-  const sourceContext = vm.createContext({
-    data: { m: [{ uid: '44043', n: '珍珠草' }, { uid: '19853', n: '葛根' }, { uid: '12539', n: '白云母' }] },
-    materialSources: {}, retainerData: {}, tradeSourceCache: {
-      '44043': { verified: true, parserVersion: 2, categories: ['miner'] },
-      '19853': { verified: true, parserVersion: 3, categories: ['miner'], evidence: ['Garland 雇员探险：BTN（Lv.65）'] },
-      '12539': { verified: true, parserVersion: 3, categories: ['botanist'], evidence: ['Garland 雇员探险：MIN（Lv.55）'] }
-    },
-    state: { tradeSourceLoading: new Set(), tradeSourceFailures: new Map() },
-    tradeWarehouseSettings: { customCategories: [] },
-    isCrystal: () => false
-  });
-  vm.runInContext(script.slice(sourceStart, sourceEnd) + '\nthis.checkTradeSource = { garlandSourceCategories, tradeSourceResolution, tradeListingCategory };', sourceContext);
-  const pearlGrass = { uid: '44043', n: '珍珠草' };
-  assert.deepEqual(Array.from(sourceContext.checkTradeSource.tradeSourceResolution(pearlGrass).categories), ['botanist'], '珍珠草的园艺来源覆盖旧版错误采矿缓存');
-  assert.equal(sourceContext.checkTradeSource.tradeSourceResolution({ uid: '19853', n: '葛根' }).status, 'pending', 'v3 的误分类缓存不得作为新版来源结论');
-  sourceContext.tradeSourceCache['999'] = { verified: true, parserVersion: 2, categories: ['miner'] };
-  assert.equal(sourceContext.checkTradeSource.tradeSourceResolution({ uid: '999', n: '待重验材料' }).status, 'pending', '旧解析版本的其他来源缓存必须重新校验');
-  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '44043', category: 'miner' }), 'botanist', '旧库存立即按正确园艺分类展示');
-  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '44043', category: 'miner', categoryOrigin: 'manual' }), 'miner', '即使来源有特例，用户手动分类仍优先');
-  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '19853', category: 'miner', categoryOrigin: 'auto' }), 'botanist', 'v3 自动误分类的园艺材料立即恢复显示');
-  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '12539', category: 'botanist', categoryOrigin: 'auto' }), 'miner', 'v3 自动误分类的采矿材料立即恢复显示');
-  assert.equal(sourceContext.checkTradeSource.tradeListingCategory({ itemId: '19853', category: 'miner', categoryOrigin: 'manual' }), 'miner', '普通材料的手动分类不被缓存覆盖');
-  const parseSource = sourceContext.checkTradeSource.garlandSourceCategories;
-  assert.deepEqual(Array.from(parseSource({ item: { category: 48, nodes: [1001] } }, null).categories), [], '物品展示类别不能推断采矿职业');
-  assert.deepEqual(Array.from(parseSource({ item: { category: 48, nodes: [1001] } }, null, [{ type: 3 }]).categories), ['botanist'], '茂盛草丛节点归园艺');
-  assert.deepEqual(Array.from(parseSource({ item: { nodes: [1002] } }, null, [{ type: 0 }]).categories), ['miner'], '矿脉节点归采矿');
-  assert.deepEqual(Array.from(parseSource({ item: { nodes: [1002] } }, null, [{ type: null }]).categories), [], '缺失节点类型不能误判为采矿');
-  assert.deepEqual(Array.from(parseSource({ item: { ventures: [691] } }, { ventureIndex: { 691: { jobs: 18, lvl: 65 } }, jobCategories: { 18: { name: 'BTN', jobs: [17] } } }).categories), ['botanist'], 'Garland 职业 17 是园艺工');
-  assert.deepEqual(Array.from(parseSource({ item: { ventures: [456] } }, { ventureIndex: { 456: { jobs: 17, lvl: 55 } }, jobCategories: { 17: { name: 'MIN', jobs: [16] } } }).categories), ['miner'], 'Garland 职业 16 是采矿工');
-
-  const auditStart = script.indexOf('  const revalidateTradeInventorySources =');
-  const auditEnd = script.indexOf('  function renderTrade() {', auditStart);
-  const auditInventory = [
-    { id: 'old-wrong', itemId: '44043', category: 'miner', categoryOrigin: 'manual' },
-    { id: 'old-auto', itemId: '44043', category: 'miner', categoryOrigin: 'auto' },
-    { id: 'v3-botanical-1', itemId: '19853', category: 'miner', categoryOrigin: 'auto', groups: 90, unitPrice: 100 },
-    { id: 'v3-botanical-2', itemId: '19853', category: 'miner', categoryOrigin: 'auto' },
-    { id: 'valid-manual', itemId: '2', category: 'miner', categoryOrigin: 'manual' }
-  ];
-  let auditSaves = 0, auditRenders = 0;
-  const auditContext = vm.createContext({
-    tradeInventory: auditInventory, state: { tradeSourceAudited: new Set(), page: 'trade', tradeView: 'inventory' },
-    tradeMaterial: id => ({ uid: id }), isTradeCrystal: () => false,
-    legacyTradeVentureCategory: material => material.uid === '19853' ? 'botanist' : null,
-    verifiedTradeGatheringJobs: { '44043': 'botanist' },
-    fetchTradeSource: async () => ({ categories: ['botanist'] }),
-    save: () => { auditSaves++; }, renderTrade: () => { auditRenders++; }, Date
-  });
-  vm.runInContext(script.slice(auditStart, auditEnd) + '\nthis.revalidateTradeInventorySources = revalidateTradeInventorySources;', auditContext);
-  auditContext.revalidateTradeInventorySources();
-  assert.equal(auditInventory[2].category, 'botanist', '旧 v3 来源缓存先在本地修复分类');
-  assert.equal(auditInventory[3].category, 'botanist', '同种材料的多条库存同时修复');
-  assert.equal(auditInventory[2].groups, 90, '分类修复不改变库存组数');
-  assert.equal(auditInventory[2].unitPrice, 100, '分类修复不改变单价');
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(auditInventory[0].category, 'miner', '手动分类不被特例来源重验覆盖');
-  assert.equal(auditInventory[0].categoryOrigin, 'manual');
-  assert.equal(auditInventory[1].category, 'botanist', '仅自动分类接受来源修正');
-  assert.equal(auditInventory[4].category, 'miner', '其他手动分类不被后台自动覆盖');
-  assert.equal(auditInventory[4].categoryOrigin, 'manual');
-  assert.equal(auditSaves, 2, '本地缓存迁移和异步重验各保存一次');
-  assert.equal(auditRenders, 1);
-  console.log('Trade inventory edit and popover checks passed.');
+  assert.match(source, /tradeHidePrices: true/, '每次打开默认隐藏库存价格');
+  assert.match(source, /button\[data-page="trade"\]'\)\.onclick = \(\) => \{ state\.page = 'trade'; state\.tradeView = 'inventory'; state\.tradeHidePrices = true;/, '重新进入交易市场时恢复隐藏价格');
+  assert.match(source, /showPrices \? '<th>单价<\/th><th>合价<\/th>' : ''/, '单价和合价同步显隐');
+  assert.match(source, /<th>市场参考价<\/th>\$\{showPrices/, '市场参考价始终显示');
+  assert.doesNotMatch(between('  function renderTrade() {', '  // 默认方案一'), /<th>备注<\/th>|data-trade-note-context/, '列表没有备注列或行内备注入口');
+  assert.match(source, /id="trade-listing-note"/, '详情仍可编辑备注');
+  assert.match(source, /listing\.note \|\| ''/, '搜索仍可匹配备注');
+  assert.match(css, /\.trade-category-sections \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, '桌面分类双栏');
+  assert.match(css, /@media \(max-width: 1280px\) \{\s*\.trade-category-sections \{ grid-template-columns: 1fr; \}/, '窄屏单栏');
+  assert.match(css, /\.trade-ledger-no-prices \.trade-col-material/, '隐藏价格时使用精简列宽');
+  console.log('Trade inventory quantity, price and layout checks passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -38,7 +38,7 @@ const context = {
   },
   basicKind: material => sources[String(material.uid)]?.verified?.equipment || sources[String(material.uid)]?.equipmentKinds?.[0] || base.k[String(material.uid)] || '常规采集品',
   document: { querySelector: selector => elements.get(selector), querySelectorAll: () => [] },
-  itemLabelMarkup: (_uid, name) => name, marketPriceLabel: () => '123 G', money: value => `${value} G`, today: () => '2026-10-08',
+  itemLabelMarkup: (_uid, name) => name, marketPriceLabel: () => '123 G', marketPriceMarkup: () => '<span>123 G</span>', money: value => `${value} G`, today: () => '2026-10-08',
   backupStorageKeys: ['ff14-material-purchases', 'ff14-godstone-purchase-presets'],
   localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
   refreshNpcRecommendations: () => {}, renderGuide: () => {},

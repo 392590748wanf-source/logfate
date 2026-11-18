@@ -10,7 +10,7 @@
   const saleUnitCost = sale => sale.costBasis
     ? Number(sale.unitCostSnapshot)
     : Number(sale.cost) / Number(sale.q);
-  const validSaleCostBasis = sale => !sale.costBasis || ['current-material', 'legacy-frozen'].includes(sale.costBasis);
+  const validSaleCostBasis = sale => !sale.costBasis || ['current-material', 'sale-time-current', 'legacy-frozen'].includes(sale.costBasis);
   const dateValid = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
     && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
@@ -158,6 +158,11 @@
         sale.unitCostSnapshot = saleUnitCost(originalSale);
         sale.cost = sale.unitCostSnapshot * Number(row.quantity);
         sale.profit = Number(sale.amount) - sale.cost;
+        if (sale.costBasis === 'sale-time-current' && originalSale.costSnapshot) {
+          sale.materialCost = Number(originalSale.costSnapshot.materialCost || 0) * Number(row.quantity);
+          sale.laborCost = Number(originalSale.costSnapshot.laborCost || 0) * Number(row.quantity);
+          sale.foodCost = Number(originalSale.costSnapshot.foodCost || 0) * Number(row.quantity);
+        }
         if (!Number.isFinite(sale.profit)) fail('销售金额无效，不能保存。');
         if (row.kind === 'suite-sale') sale.recipeCosts = clone(row.deltas);
       }

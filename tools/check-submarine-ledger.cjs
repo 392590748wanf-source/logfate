@@ -54,6 +54,17 @@ const currentResized = edit(currentBasis, { operationId: 'a-sale-op', quantity: 
 approx(currentResized.suiteSales.find(row => row.id === 'a-sale').cost, 2000);
 approx(currentResized.suiteSales.find(row => row.id === 'a-sale').profit, 2000);
 assert.equal(currentResized.suiteSales.find(row => row.id === 'a-sale').costBasis, 'current-material');
+const timedBasis = fixture();
+const timedSale = timedBasis.suiteSales.find(row => row.id === 'a-sale');
+Object.assign(timedSale, { costBasis: 'sale-time-current', unitCostSnapshot: 500, cost: 2500, profit: 2500,
+  materialCost: 2000, laborCost: 500, foodCost: 0, costSnapshot: { materialCost: 400, laborCost: 100, foodCost: 0, total: 500 } });
+const timedResized = edit(timedBasis, { operationId: 'a-sale-op', quantity: 4, unitPrice: 1000 });
+const timedUpdated = timedResized.suiteSales.find(row => row.id === 'a-sale');
+approx(timedUpdated.cost, 2000); approx(timedUpdated.materialCost, 1600); approx(timedUpdated.laborCost, 400);
+approx(timedUpdated.profit, 2000);
+const timedRepriced = edit(timedBasis, { operationId: 'a-craft', unitCosts: { 1: 200, 2: 300 } });
+approx(timedRepriced.suiteSales.find(row => row.id === 'a-sale').cost, 2500);
+approx(timedRepriced.suiteSales.find(row => row.id === 'a-sale').laborCost, 500);
 const invalidSnapshot = copy(currentBasis);
 invalidSnapshot.suiteSales.find(row => row.id === 'a-sale').cost = 2400;
 assert.throws(() => edit(invalidSnapshot, { operationId: 'a-craft' }), /历史销售与库存操作不一致/);
@@ -180,6 +191,7 @@ const sellContext = vm.createContext({
   setSubmarineStock: (part, stock) => { sellStocks[part.id] = stock; },
   submarineSuiteCurrentPlan: () => suitePlan,
   submarineCurrentPlan: () => partPlan,
+  submarineSaleCostSnapshot: parts => { const plan = parts.length > 1 ? suitePlan : partPlan; if (plan.missing.length) throw new Error('缺少当前材料价格：' + plan.missing.join('、')); return { materialCost: plan.total, laborCost: 0, foodCost: 0, total: plan.total }; },
   suiteLabel: () => '测试套装',
   submarineSuiteSales: sellSuiteSales,
   submarineSales: sellPartSales,
@@ -191,7 +203,7 @@ vm.runInContext(fn('  function submarineSell(part', '  function undoSubmarineOpe
 const sellSuite = { id: 'test-suite' };
 vm.runInContext("submarineSellSuite(sellSuite, 1000, '2026-10-08', 1)", Object.assign(sellContext, { sellSuite }));
 approx(sellSuiteSales[0].cost, 900); approx(sellSuiteSales[0].profit, 100);
-assert.equal(sellSuiteSales[0].costBasis, 'current-material');
+assert.equal(sellSuiteSales[0].costBasis, 'sale-time-current');
 approx(sellSuiteSales[0].unitCostSnapshot, 900);
 approx(sellOperations[0][3].reduce((sum, row) => sum + row.cost, 0), 300);
 assert.equal(sellStocks[1].q, 1); approx(sellStocks[1].v, 100);

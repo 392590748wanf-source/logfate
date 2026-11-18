@@ -23,7 +23,9 @@ const BACKUP_KEYS = new Set([
   'ff14-material-purchases',
   'ff14-fantasy-prices',
   'ff14-submarine-ticket-settings',
+  'ff14-sale-time-settings',
   'ff14-other-material-ids',
+  'ff14-market-watch',
   'ff14-submarine-stocks',
   'ff14-submarine-sales',
   'ff14-submarine-suite-sales',
@@ -43,6 +45,13 @@ const BACKUP_KEYS = new Set([
 ]);
 
 let mainWindow;
+let craftSimulatorWindow;
+let craftSimulatorNavigation = 0;
+const craftSimulatorOrigin = 'https://tnze.yyyy.games';
+const isCraftSimulatorPage = url => {
+  try { return new URL(url).origin === craftSimulatorOrigin; }
+  catch { return false; }
+};
 let downloadedClientUpdate = null;
 let clientUpdateInstalling = false;
 let clientUpdateInstallError = null;
@@ -224,6 +233,10 @@ const createWindow = () => {
   mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('closed', () => {
+    mainWindow = null;
+    craftSimulatorWindow?.close();
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -235,6 +248,59 @@ const createWindow = () => {
     }
   });
 };
+
+ipcMain.handle('craft-simulator:open', async (event, recipeId) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+    return { ok: false, message: '请从 GilFate 主窗口打开制作模拟器。' };
+  }
+  if (recipeId != null && (!Number.isSafeInteger(recipeId) || recipeId <= 0)) {
+    return { ok: false, message: '配方编号无效。' };
+  }
+  if (craftSimulatorWindow?.isVisible() && recipeId == null) {
+    if (craftSimulatorWindow.isMinimized()) craftSimulatorWindow.restore();
+    craftSimulatorWindow.focus();
+    return { ok: true };
+  }
+  const navigation = ++craftSimulatorNavigation;
+  try {
+    if (!craftSimulatorWindow) {
+      craftSimulatorWindow = new BrowserWindow({
+        width: 1240, height: 850, minWidth: 760, minHeight: 580,
+        show: false, title: 'BestCraft 制作模拟器', icon: APP_ICON,
+        webPreferences: {
+          partition: 'persist:gilfate-bestcraft',
+          preload: path.join(__dirname, 'craft-simulator-preload.cjs'),
+          contextIsolation: true, nodeIntegration: false, sandbox: true
+        }
+      });
+      craftSimulatorWindow.removeMenu();
+      craftSimulatorWindow.on('closed', () => { craftSimulatorWindow = null; });
+      const contents = craftSimulatorWindow.webContents;
+      contents.setWindowOpenHandler(({ url }) => {
+        if (/^https?:\/\//i.test(url)) void shell.openExternal(url).catch(() => {});
+        return { action: 'deny' };
+      });
+      contents.on('will-navigate', (navigation, url) => {
+        if (!isCraftSimulatorPage(url)) navigation.preventDefault();
+      });
+      contents.on('will-redirect', (navigation, url) => {
+        if (!isCraftSimulatorPage(url)) navigation.preventDefault();
+      });
+    }
+    const window = craftSimulatorWindow;
+    const route = recipeId == null ? 'recipe' : `recipe?recipeId=${recipeId}`;
+    await window.loadURL(`${craftSimulatorOrigin}/#/${route}`);
+    if (navigation !== craftSimulatorNavigation || window.isDestroyed()) return { ok: true };
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+    return { ok: true };
+  } catch {
+    if (navigation !== craftSimulatorNavigation) return { ok: true };
+    if (craftSimulatorWindow && !craftSimulatorWindow.isVisible()) craftSimulatorWindow.close();
+    return { ok: false, message: 'BestCraft 加载失败，请检查网络后重试。' };
+  }
+});
 
 const configureAutoUpdater = async () => {
   if (!app.isPackaged) return;

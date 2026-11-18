@@ -11,7 +11,7 @@ assert.match(css, /\.guide-material-card\.material-search-hit\s*\{[^}]*outline:[
 assert.match(css, /\.material-search-hit > td/, '表格材料也需要高亮样式');
 
 const start = source.indexOf('  const basicSearchCategoryKey = result => {');
-const end = source.indexOf('  const addOtherMaterial = async material => {', start);
+const end = source.indexOf('  async function refreshMarket(', start);
 const reapplyStart = source.indexOf('    if (guideSearchHit && guideSearchHit.scope === state.basicCategory', end);
 const reapplyEnd = source.indexOf('    const renderedCategory = state.basicCategory;', reapplyStart);
 assert(start >= 0 && end > start && reapplyStart > end && reapplyEnd > reapplyStart, '未找到搜索定位和重绘高亮逻辑');

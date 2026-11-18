@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ff14Desktop', {
   loadDataBundle: () => ipcRenderer.invoke('data:load'),
   checkDataUpdates: () => ipcRenderer.invoke('data:check'),
   applyDataUpdate: () => ipcRenderer.invoke('data:apply'),
+  openCraftSimulator: recipeId => ipcRenderer.invoke('craft-simulator:open', recipeId),
   getCaptureDisplays: () => ipcRenderer.invoke('purchase:capture-displays'),
   capturePurchaseArea: options => ipcRenderer.invoke('purchase:capture-area', options),
   onUpdateStatus: callback => {

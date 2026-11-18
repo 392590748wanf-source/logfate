@@ -18,6 +18,7 @@ const bundle = { id: 'knight', label: '骑士', priceKey: 'knight', pricePart: '
 const context = {
   prices, data, today: () => '2026-10-09',
   stock: id => data.p[id],
+  equipmentSaleCostSnapshot: () => ({ materialCost: 123, laborCost: 0, foodCost: 0, total: 123 }),
   inventory: row => Math.min(...row.components.map(component => Math.floor(data.p[component.item.id].q / component.qty)))
 };
 const priceStart = source.indexOf('  const priceFor = tableRow =>');
@@ -40,8 +41,9 @@ for (const invalid of ['', 0, -1]) {
 
 api.sell(bundle, 111);
 assert.equal(data.l[0].amount, 111, '任意正价按实际成交价记账');
-assert.equal(data.l[0].cost, 200000, '销售成本仍按原库存账面成本计算');
-assert.equal(data.l[0].profit, -199889, '利润仍为成交额减成本');
+assert.equal(data.l[0].cost, 123, '销售利润使用出售时材料成本快照');
+assert.equal(data.l[0].profit, -12, '利润为成交额减锁定成本');
+assert.equal(data.l[0].recipeCosts[0].cost, 200000, '库存账面扣减与销售成本分开保存');
 assert.equal(data.p.armor.q, 1, '只扣除对应库存');
 api.sell(bundle, 111.25);
 assert.equal(data.l[0].amount, 111.25, '允许非整数正价，不受 HTML 步长限制');

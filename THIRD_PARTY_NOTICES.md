@@ -1,5 +1,11 @@
 # 第三方数据与许可证说明
 
+## HqHelper 简易制作资料
+
+- 来源：[InfSein/hqhelper 的配方快照](https://github.com/InfSein/hqhelper/blob/d7bf0f40fb589c2e93817f6d1bcb1c92eb102434/src/assets/data/unpacks/recipes.json)，第三方开源项目。
+- 许可：[MIT License，Copyright (c) 2024-2027 InfSein](https://github.com/InfSein/hqhelper/blob/d7bf0f40fb589c2e93817f6d1bcb1c92eb102434/LICENSE)（MIT 许可正文见本文下方）。
+- 用 `node tools/sync-recipe-synthesis.mjs [本地快照路径]` 按配方 ID 同步简易制作标记与门槛。核对结果保存在 `recipe-synthesis-data.js` 的 `audit`，包含各资料表覆盖、工房节点、待核验清单及 XIVAPI 样例核对。
+
 ## HqHelper Dawntrail
 
 - 来源：<https://github.com/InfSein/hqhelper-dawntrail>

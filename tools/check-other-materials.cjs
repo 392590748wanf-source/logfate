@@ -1,42 +1,24 @@
-// 模拟“其他材料”移除；不读取或修改真实账本。
+// 旧“其他材料”迁入价格监控；移出监控不得删除共享材料或采购账本。
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'fantasy.js'), 'utf8');
-const css = fs.readFileSync(path.join(root, 'app.css'), 'utf8');
-assert.match(source, /other-search-results/, '左侧搜索结果应使用窄栏布局');
-assert.match(source, /materialTable\(materials, '', true\)/, '已加入材料需要移除入口');
-assert.match(source, /joined \? '移除'/, '已加入的搜索结果也应显示移除入口');
-assert.match(css, /\.other-search-results \.ledger \{[^}]*min-width: 0/, '搜索结果不应继承通用表格最小宽度');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const watch = require(path.join(root, 'market-watch.js'));
 
-const start = source.indexOf('  const removeOtherMaterial = uid => {');
-const end = source.indexOf('  async function refreshMarket(', start);
-assert(start >= 0 && end > start, '未找到其他材料移除逻辑');
-const otherMaterialIds = ['36115', '12345'];
-const material = { uid: 36115, n: '巨匠药酒' };
-const data = { m: [material] };
-let confirmed = false, saves = 0, renders = 0;
-const context = vm.createContext({
-  otherMaterialIds, data,
-  confirm: () => confirmed,
-  save: () => { saves++; },
-  renderGuide: () => { renders++; }
-});
-vm.runInContext(source.slice(start, end) + '\nthis.remove = removeOtherMaterial;', context);
+assert.ok(html.indexOf('market-watch.js') < html.indexOf('fantasy.js'), '监控工具脚本必须先于主脚本载入');
+assert.match(source, /data-page="watch">价格监控/, '应有独立价格监控导航');
+assert.match(source, /id="watch" class="view"/, '应有独立价格监控页面');
+assert.doesNotMatch(source, /data-basic-category="other"/, '材料指导价不再显示其他材料标签');
+assert.match(source, /const watchSettings = window\.MarketWatch\.normalizeSettings\([^\n]*otherMaterialIds\)/, '旧清单应迁入监控');
+assert.match(source, /delete watchSettings\.items\[uid\]; delete watchSnapshots\[uid\]/, '移出时只删监控设置和行情缓存');
+assert.match(source, /采购记录不会删除/, '移出提示应说明采购记录保留');
 
-context.remove('36115');
-assert.deepEqual(otherMaterialIds, ['36115', '12345'], '取消移除时清单应保持原样');
-assert.equal(saves, 0);
-confirmed = true;
-context.remove('36115');
-assert.deepEqual(otherMaterialIds, ['12345'], '仅从其他材料清单移除目标 ID');
-assert.equal(data.m[0], material, '不应删除材料资料或其历史数据');
-assert.equal(saves, 1);
-assert.equal(renders, 1);
-context.remove('36115');
-assert.equal(saves, 1, '重复移除不应改写账本');
-
-console.log('Other material search layout and removal checks passed.');
+const settings = watch.normalizeSettings(null, ['36115', '36115', '12345']);
+assert.deepEqual(Object.keys(settings.items), ['12345', '36115']);
+assert.equal(settings.items['36115'].categoryId, 'other');
+assert.equal(settings.items['36115'].quality, 'all');
+assert.equal(settings.items['36115'].priority, 'medium');
+console.log('Legacy other-material migration and independent watch checks passed.');
